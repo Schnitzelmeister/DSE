@@ -1,8 +1,9 @@
 package at.ac.univie.dse2016.stream.GUI.BrokerAdmin;
 
 
-import at.ac.univie.dse2016.stream.BrokerAdmin;
+
 import at.ac.univie.dse2016.stream.Client;
+import at.ac.univie.dse2016.stream.common.BrokerAdmin;
 import javafx.fxml.FXML;
 import javafx.scene.control.TextField;
 import javafx.scene.text.Text;
@@ -53,9 +54,9 @@ public class AddClientController {
         Integer parentId = Integer.parseInt(parent_id.getText());
         float kontoStand = Float.parseFloat(kontostand.getText());
         String clientName = client_name.getText();
-        Client client = new Client(clientId, parentId, kontoStand, clientName);
+        Client client = new Client(clientId, parentId, kontoStand, clientName, null);
         try {
-            brokerAdmin.clientAddNew(client);
+            brokerAdmin.clientAddNew(null);
         } catch (RemoteException e){
             failText.setText("Cannot connect");
         }
