@@ -13,7 +13,7 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
-public class AddClientController {
+public class AddClientController extends AbstractController {
     @FXML
     private TextField client_id;
     @FXML
@@ -36,13 +36,7 @@ public class AddClientController {
      */
     @FXML
     public void initialize() {
-        try {
-            Registry registry = LocateRegistry.getRegistry("localhost", 10003);
-            this.brokerAdmin = (BrokerAdmin)registry.lookup("client");
-        } catch (RemoteException | NotBoundException e) {
-            e.printStackTrace();
-            failText.setText("Cannot connect");
-        }
+        super.connect();
     }
 
     /**

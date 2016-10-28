@@ -7,11 +7,17 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.stage.Stage;
 
 
+import java.io.IOException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -24,7 +30,10 @@ import java.rmi.registry.Registry;
 
 
 
-public class ClientsListController {
+public class ClientsListController extends AbstractController {
+
+
+
 
     private BrokerAdmin brokerAdmin;
 
@@ -33,6 +42,7 @@ public class ClientsListController {
 
     @FXML
     public void initialize() {
+
         ObservableList<Client> data =FXCollections.observableArrayList(
                 new Client(123, 312, 100000, "John"),
         new Client(1234, 3123, 100000, "John"),
@@ -61,19 +71,30 @@ public class ClientsListController {
         clientList.setItems(data);
 
 
-        try {
 
-            Registry registry = LocateRegistry.getRegistry("localhost", 10003);
-           // this.brokerAdmin = (BrokerAdmin)registry.lookup("client");
-        } catch (RemoteException e) {
-            e.printStackTrace();
-            //failText.setText("Cannot connect");
-        }
+            super.connect();
+
 
     }
 
     public void editClient(ActionEvent actionEvent) {
+        //speichern Clienten den man aendert moechte
+        super.setToStorage("editClient", clientList.getSelectionModel().getSelectedItem());
 
+        try {
+            Parent root = FXMLLoader.load(getClass().getResource("EditClient.fxml"));
+
+            Stage stage = new Stage();
+            // stage.setTitle("My New Stage Title");
+            stage.setScene(new Scene(root));
+            stage.show();
+
+            //hide this current window (if this is whant you want
+            //((Node)(actionEvent.getSource())).getScene().getWindow().hide();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void lockClient(ActionEvent actionEvent) {

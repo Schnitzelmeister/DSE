@@ -1,6 +1,7 @@
 package at.ac.univie.dse2016.stream.GUI.BrokerAdmin;
 
 import javafx.event.ActionEvent;
+import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.Parent;
@@ -14,8 +15,11 @@ import java.io.IOException;
 /**
  * Created by mac on 26.10.16.
  */
-public class BrokerAdminGUIController {
-
+public class BrokerAdminGUIController extends AbstractController {
+    @FXML
+    public void initialize() {
+        super.connect();
+    }
 
     public void clientAdd(ActionEvent actionEvent) {
 
@@ -45,7 +49,7 @@ public class BrokerAdminGUIController {
     */
 
     public void getClientsList(ActionEvent actionEvent) {
-
+//erzeugen ein Window
         try {
             Parent root = FXMLLoader.load(getClass().getResource("getClientsList.fxml"));
 
@@ -55,7 +59,7 @@ public class BrokerAdminGUIController {
             stage.show();
 
             //hide this current window (if this is whant you want
-            ((Node)(actionEvent.getSource())).getScene().getWindow().hide();
+            //((Node)(actionEvent.getSource())).getScene().getWindow().hide();
 
         } catch (IOException e) {
             e.printStackTrace();

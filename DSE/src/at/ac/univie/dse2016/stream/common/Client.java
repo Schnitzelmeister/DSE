@@ -11,6 +11,10 @@ public class Client implements Serializable {
 	protected Integer id;
 	public Integer getId() { return id; }
 
+	public void setId(Integer id){
+		this.id = id;
+	}
+
 	/**
 	 * fuer ein Boersenmakler ist -1,
 	 * fuer Broker ist Id von Boersenmakler, bei dem er arbeitet
@@ -20,14 +24,28 @@ public class Client implements Serializable {
 	protected Integer parentId;
 	public Integer getBrokerId() { return parentId; }
 
+	public void setParentId(Integer parentId){
+		this.parentId = parentId;
+	}
+
+
+
 	/**
 	 * das Geld auf dem Tradingskonto in EUR
 	 */
 	protected float kontostand;
 	public float getKontostand() { return kontostand; }
+
+	public void setKontostand(float kontostand){
+		this.kontostand = kontostand;
+	}
 	
 	protected String name;
 	public String getName() { return name; }
+
+	public void setName(String name){
+		this.name = name;
+	}
 	
 //	protected Credit credit;
 //	public Credit getKredit() { return credit; }
