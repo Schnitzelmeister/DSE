@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.text.Text?>
+
+<Pane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="at.ac.univie.dse2016.stream.GUI.BrokerAdmin.AddClientController">
+   <children>
+      <TextField fx:id="client_id" layoutX="93.0" layoutY="71.0" />
+      <TextField fx:id="parent_id" layoutX="316.0" layoutY="71.0" />
+      <TextField fx:id="kontostand" layoutX="93.0" layoutY="173.0" />
+      <TextField fx:id="client_name" layoutX="316.0" layoutY="173.0" />
+      <Text layoutX="150.0" layoutY="65.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Client ID" />
+      <Text layoutX="371.0" layoutY="65.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Parent ID" />
+      <Text layoutX="141.0" layoutY="169.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Kontostand" />
+      <Text layoutX="362.0" layoutY="169.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Client Name" />
+      <Button layoutX="465.0" layoutY="337.0" mnemonicParsing="false" onAction="#clientAddNew" text="Add Client" />
+      <Text fx:id="failText" fill="#ee0707" layoutX="348.0" layoutY="355.0" strokeType="OUTSIDE" strokeWidth="0.0" text=" " />
+   </children>
+</Pane>
