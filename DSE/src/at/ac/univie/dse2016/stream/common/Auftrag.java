@@ -8,6 +8,7 @@ public class Auftrag implements Serializable {
 	
 	protected Integer id;
 	public Integer getId() { return id; }
+	public void setId(Integer id) { this.id = id; }
 	
 	protected boolean kaufen;
 	public boolean getKaufen() { return kaufen; }

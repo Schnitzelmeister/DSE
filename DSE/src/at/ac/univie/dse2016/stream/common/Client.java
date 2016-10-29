@@ -25,6 +25,7 @@ public class Client implements Serializable {
 	 */
 	protected float kontostand;
 	public float getKontostand() { return kontostand; }
+	public void setKontostand(float diff) { this.kontostand += diff; }
 	
 	protected String name;
 	public String getName() { return name; }
