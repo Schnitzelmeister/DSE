@@ -2,8 +2,7 @@ package at.ac.univie.dse2016.stream.brokeradminapp;
 
 
 
-import at.ac.univie.dse2016.stream.common.Client;
-import at.ac.univie.dse2016.stream.common.BrokerAdmin;
+import at.ac.univie.dse2016.stream.common.*;
 import javafx.fxml.FXML;
 import javafx.scene.control.TextField;
 import javafx.scene.text.Text;
@@ -12,8 +11,12 @@ import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
 
-public class AddClientController extends AbstractController {
+public class AddClientController/* extends AbstractController*/ {
     @FXML
     private TextField client_id;
     @FXML
@@ -28,7 +31,7 @@ public class AddClientController extends AbstractController {
     /**
      * Variable, mite der wir Methoden im BrokerAdmin aufrufen koennen
      */
-    private BrokerAdmin brokerAdmin;
+//    private BrokerAdmin brokerAdmin;
 
     /**
      * Method for connecting to the server "Boerse"
@@ -36,21 +39,21 @@ public class AddClientController extends AbstractController {
      */
     @FXML
     public void initialize() {
-        super.connect();
+        //super.connect();
+    	client_id.setText("-1");
+    	parent_id.setText(String.valueOf(Main.brokerId));
+    	kontostand.setText("0.00");
     }
 
     /**
      * Feld fuer clients TextFiled
      */
     public void clientAddNew(){
-
-        Integer clientId = Integer.parseInt(client_id.getText());
-        Integer parentId = Integer.parseInt(parent_id.getText());
-        float kontoStand = Float.parseFloat(kontostand.getText());
+        Integer parentId = Main.brokerId;
         String clientName = client_name.getText();
-        Client client = new Client(clientId, parentId, kontoStand, clientName);
+        Client client = new Client(parentId, clientName);
         try {
-            brokerAdmin.clientAddNew(client);
+            Main.brokerAdmin.clientAddNew(client);
         } catch (RemoteException e){
             failText.setText("Cannot connect");
         }

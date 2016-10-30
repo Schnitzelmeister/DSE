@@ -10,7 +10,7 @@ public class BrokerAdminApp {
 	/**
 	 * @param args
 	 */
-	public static void main(String[] args) {
+	public static void _main(String[] args) {
 		
 		Integer brokerId = Integer.valueOf(args[0]);
 		

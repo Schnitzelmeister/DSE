@@ -16,6 +16,10 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.stage.Stage;
 
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
 
 import java.io.IOException;
 import java.rmi.RemoteException;
@@ -27,15 +31,10 @@ import java.rmi.registry.Registry;
  */
 
 
+public class ClientsListController /*extends AbstractController*/ {
 
-
-
-public class ClientsListController extends AbstractController {
-
-
-
-
-    private BrokerAdmin brokerAdmin;
+	
+    //private BrokerAdmin brokerAdmin;
 
     @FXML
     TableView<Client> clientList;
@@ -43,13 +42,24 @@ public class ClientsListController extends AbstractController {
     @FXML
     public void initialize() {
 
-        ObservableList<Client> data =FXCollections.observableArrayList(
+        /*ObservableList<Client> data =FXCollections.observableArrayList(
                 new Client(123, 312, 100000, "John"),
         new Client(1234, 3123, 100000, "John"),
         new Client(1235, 3124, 100000, "John"),
          new Client(1236, 3125, 100000, "John")
-        );
-        clientList.setEditable(true);
+        );*/
+
+    	ObservableList<Client> data =FXCollections.observableArrayList();
+    	try {
+    		for (Client b : Main.brokerAdmin.getClientsList()) 
+    			data.add(new Client(b.getId(), b.getBrokerId(), b.getKontostand(), b.getName()));
+    	} catch (Exception e) {
+            System.err.println("Client exception:");
+            e.printStackTrace();
+        }
+
+    	clientList.setEditable(true);
+        
         TableColumn idColumn = new TableColumn("Client ID");
         idColumn.setCellValueFactory(new PropertyValueFactory<Client,Integer>("id"));
 
@@ -70,16 +80,14 @@ public class ClientsListController extends AbstractController {
         clientList.getColumns().addAll(idColumn, parentIdColumn, kontostandColumn, nameColumn);
         clientList.setItems(data);
 
-
-
-            super.connect();
+     //   super.connect();
 
 
     }
 
     public void editClient(ActionEvent actionEvent) {
         //speichern Clienten den man aendert moechte
-        super.setToStorage("editClient", clientList.getSelectionModel().getSelectedItem());
+        //super.setToStorage("editClient", clientList.getSelectionModel().getSelectedItem());
 
         try {
             Parent root = FXMLLoader.load(getClass().getResource("EditClient.fxml"));
@@ -100,7 +108,7 @@ public class ClientsListController extends AbstractController {
     public void lockClient(ActionEvent actionEvent) {
         Client client = clientList.getSelectionModel().getSelectedItem();
         try {
-            brokerAdmin.clientLock(client);
+            Main.brokerAdmin.clientLock(client);
         } catch (RemoteException e) {
             e.printStackTrace();
         }

@@ -11,14 +11,18 @@ import javafx.stage.Stage;
 
 import java.io.IOException;
 
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
 
 /**
  * Created by mac on 26.10.16.
  */
-public class BrokerAdminGUIController extends AbstractController {
+public class BrokerAdminGUIController /* extends AbstractController*/ {
     @FXML
     public void initialize() {
-        super.connect();
+        //super.connect();
     }
 
     public void clientAdd(ActionEvent actionEvent) {

@@ -7,16 +7,24 @@ import java.rmi.server.UnicastRemoteObject;
 
 import at.ac.univie.dse2016.stream.boerse.BoerseAdminAdapter;
 import at.ac.univie.dse2016.stream.boerse.BoerseServer;
+import at.ac.univie.dse2016.stream.boerse.EmittentSection;
 import at.ac.univie.dse2016.stream.common.*;
 
 public class BrokerServer implements BrokerAdmin, BrokerClient {
 	
-	public BrokerServer() {
+	public BrokerServer(Integer brokerId) {
+		this.brokerId = brokerId;
 		emittents = new java.util.TreeMap<String, Emittent>();
 		activeAuftraege = new java.util.TreeMap< Integer /* clientId */, java.util.ArrayList<Auftrag> >();
 		auftraegeLog = new java.util.TreeMap< Integer /* clientId */, java.util.ArrayList<Auftrag> >();
+		clients = new java.util.TreeMap<Integer, Client>();
 	}
 
+	/**
+	 * Broker Id
+	 */
+	private Integer brokerId;
+	
 	/**
 	 * Emittents, die auf der Boerse gekauft/verkauft werden duerfen
 	 */
@@ -42,20 +50,36 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	 * AddNew Client, Admin's Function
 	 */
 	public Integer clientAddNew(Client client) throws RemoteException, IllegalArgumentException {
-		return -1;
+		synchronized(clients) {
+			client = new Client(clients.size() + 1, brokerId, 0f, client.getName());
+			clients.put(client.getId(), client);
+		}
+		return client.getId();
+
 	}
 
 	/**
 	 * Edit Client, Admin's Function
 	 */
 	public void clientEdit(Client client) throws RemoteException, IllegalArgumentException {
+		if ( !clients.containsKey(client.getId()) )
+			throw new IllegalArgumentException("Client with id=" + client.getId() + " does not exist");
 		
+		Client actualClient = clients.get(client.getId());
+		
+		actualClient.setName(client.getName());
 	}
 	
 	/**
 	 * Remove Client, Admin's Function
 	 */
 	public void clientLock(Client client) throws RemoteException, IllegalArgumentException {
+		if ( !clients.containsKey(client.getId()) )
+			throw new IllegalArgumentException("Client with id=" + client.getId() + " does not exist");
+		
+		synchronized(clients) {
+			clients.remove( client.getId() );
+		}
 		
 	}
 	
@@ -186,7 +210,7 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	public static void main(String[] args) {
 
 		Integer brokerId = Integer.valueOf(args[0]);
-		BrokerServer brokerServer = new BrokerServer();
+		BrokerServer brokerServer = new BrokerServer(brokerId);
 		
         if (System.getSecurityManager() == null) {
             System.setSecurityManager(new SecurityManager());
@@ -198,16 +222,21 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 
             //brokerServer.emittents = ;
             for (Emittent e : boerse.getEmittentsList())
-            	System.out.println(e.getTicker() + "/n");
+            	System.out.println(e.getTicker());
 
             Broker brokerState = boerse.getState(brokerId);
 
-            System.out.println(brokerState.getId() + "/n");
-            System.out.println(brokerState.getName() + "/n");
-            System.out.println(brokerState.getKontostand() + "/n");
+            System.out.println(brokerState.getId());
+            System.out.println(brokerState.getName());
+            System.out.println(brokerState.getKontostand());
             
             
-            Registry registry = LocateRegistry.createRegistry(10002);
+            String host = boerse.getBrokerNetworkAddress(brokerId);
+            String[] ar = host.split(":");
+            int port = Integer.valueOf(ar[1]);
+            host = ar[0];
+            
+            Registry registry = LocateRegistry.createRegistry(port);
             
             BrokerAdminAdapter adminAdapter = new BrokerAdminAdapter(brokerServer);
             BrokerAdmin adminStub =
@@ -217,6 +246,9 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
             BrokerClient clientStub =
                     (BrokerClient) UnicastRemoteObject.exportObject(brokerServer, 0);
             registry.rebind("client", clientStub);
+            
+            System.out.println("Der Broker " + brokerState.getName() + " ist gestartet");
+            System.out.println("Hostname=" + host + ", port=" + port);
         
         } catch (Exception e) {
             System.err.println("Client exception:");

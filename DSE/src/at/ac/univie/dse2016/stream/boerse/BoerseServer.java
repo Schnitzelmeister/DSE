@@ -3,6 +3,7 @@ package at.ac.univie.dse2016.stream.boerse;
 import java.net.*;
 import java.io.*;
 import java.security.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
@@ -20,8 +21,9 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 		brokers = new java.util.TreeMap<Integer, Broker>();
 		marketPrices = new java.util.TreeMap<Integer, Float>();
 		emittentSections = new java.util.TreeMap< Integer /* emittentId */, EmittentSection >();
-		activeAuftraege = new java.util.TreeMap< Integer /* clientId */, java.util.ArrayList<Auftrag> >();
-		auftraegeLog = new java.util.TreeMap< Integer /* clientId */, java.util.ArrayList<Auftrag> >();
+		activeAuftraege = new java.util.TreeMap< Integer /* clientId */, java.util.TreeMap< Integer /* auftragId */, java.util.ArrayList<Auftrag> > >();
+		auftraegeLog = new java.util.TreeMap< Integer /* clientId */, java.util.TreeMap< Integer /* auftragId */, java.util.ArrayList<Auftrag> > >();
+		lastCommitedAuftraege = new java.util.TreeMap< Integer /* emittentId */, Auftrag >();
 	}
 
 	
@@ -37,7 +39,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	private java.util.TreeMap<String, Emittent> emittents;
 
 	/**
-	 * Die Preise, mit denen den letzten Auftrag uenerwiesen wurden
+	 * Die Preise, mit denen den letzten Auftrag ueberwiesen wurden
 	 */
 	private java.util.TreeMap<Integer, Float> marketPrices;
 
@@ -47,19 +49,25 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	private java.util.TreeMap<Integer, Broker> brokers;
 
 	/**
-	 * Alle Auftraege der Boerse, die aktuell sind
+	 * Emittent Sections
 	 */
 	private java.util.TreeMap< Integer /* emittentId */, EmittentSection > emittentSections;
 
 	/**
-	 * Alle Auftraege der Boerse
+	 * Letzte ausgefuehrte Auftraege
 	 */
-	private java.util.TreeMap< Integer /* clientId */, java.util.ArrayList<Auftrag> > activeAuftraege;
+	private java.util.TreeMap< Integer /* emittentId */, Auftrag > lastCommitedAuftraege;
+
+	
+	/**
+	 * Alle Auftraege der Boerse, die aktuell sind
+	 */
+	private java.util.TreeMap< Integer /* clientId */, java.util.TreeMap< Integer /* auftragId */, java.util.ArrayList<Auftrag> > > activeAuftraege;
 
 	/**
 	 * Alle Auftraege der Boerse
 	 */
-	private java.util.TreeMap< Integer /* clientId */, java.util.ArrayList<Auftrag> > auftraegeLog;
+	private java.util.TreeMap< Integer /* clientId */, java.util.TreeMap< Integer /* auftragId */, java.util.ArrayList<Auftrag> > > auftraegeLog;
 
 	/**
 	 * Counter fuer Auftraege
@@ -116,6 +124,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 			marketPrices.remove( actualEmittent.getId() );
 			activeAuftraege.remove( actualEmittent.getId() );
 			emittents.remove( actualEmittent.getTicker() );
+			emittentSections.remove( actualEmittent.getId() );
 		}
 	}
 
@@ -177,12 +186,20 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	 */
 	public synchronized void Close() throws RemoteException {
 		status = BoerseStatus.Closed;
+		stopFeedUDP();
 	}
 
 	/**
 	 * Oeffnet die Boerse, Admin's Function oder ScheduleJob
 	 */
 	public synchronized void Open() throws RemoteException {
+        //start UDP
+        threadUDP = new Thread() {
+            public void run() {
+            	startFeedUDP();
+            }
+        };
+
 		status = BoerseStatus.Open;
 	}
 	
@@ -291,7 +308,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 								anzahl = 0;
 							}
 							
-							emittentSection.setCommitedAuftrage(auftrag.getId(), a.getId());
+							//emittentSection.setCommitedAuftrage(auftrag.getId(), a.getId());
 						}
 						
 						//alles ist erledigt
@@ -300,8 +317,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 					}					
 				}
 				
-				
-				
+				sendFeedMsg(new FeedMsg(msgCounter.getAndDecrement(), 0/*id*/, tickerId, true, anzahl, 0f/*preis*/, /*status*/AuftragStatus.Accepted));
 				
 			}
 
@@ -392,31 +408,137 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	
 	
 	//UDP-Server stuff
-	// noch nicht implementiert
 	/**
 	 * UDP-Thread des Servers
 	 */
 	private Thread threadUDP;
 	
+	/**
+	 * UDP-Socket
+	 */
+	private DatagramSocket socketUDP;
 	
 	/**
-	 * UDP Clients
+	 * UDP Sessions
 	 */
 	private java.util.TreeMap< Integer, UDPSession > activeUDPSessions;
 
 	/**
+	 * Counters
+	 */
+	private AtomicInteger msgCounter;
+	private AtomicInteger sessionCounter;
+
+	/**
 	 * Start UDP Server
-	 * multicast ware beser, aber ist es problematisch im internet zu implementieren
+	 * multicast waere beser, aber ist es problematisch im internet zu implementieren
 	 * hier verwendet man unicast
 	 */
-	private static void startFeedUDP() {
+	private void startFeedUDP() {
+		activeUDPSessions = new java.util.TreeMap< Integer, UDPSession >();
+		msgCounter.set(0);
+		sessionCounter.set(0);
+		
 	    try {
-	    	DatagramSocket socket = new DatagramSocket(10000);
-	    	byte[] buf = new byte[256];
+	    	socketUDP = new DatagramSocket(10000);
+	    	byte[] buf = new byte[1024];
+	    	
+	    	do {
+				DatagramPacket requestPacket = new DatagramPacket(buf, buf.length);
+				socketUDP.receive(requestPacket);
+				
+				
+				//process Request async
+				new Thread(new java.lang.Runnable() {
+					private DatagramPacket requestPacket;
+					   
+				    public Runnable init(DatagramPacket requestPacket) {
+				    	this.requestPacket = requestPacket;
+				    	return this;
+				    }
+				    
+				    @Override
+				    public void run() {
+				    	processFeedRequest(requestPacket);
+				    }
+				}.init(requestPacket)).start();
+				   
+				//processFeedRequest(request.getData(), request.getAddress(), request.getPort());
+				
+	    	} while (true);
+	    }   
+	    catch (SocketException e){
+	        System.err.println("Socket: " + e.getMessage());
+	    }
+	    catch (IOException e){
+	    	System.err.println("IO: " + e.getMessage());
+	    }
+	}
 
-			DatagramPacket packet = new DatagramPacket(buf, buf.length);
-			socket.receive(packet);
+	/**
+	 * Stop UDP Server
+	 */
+	private void stopFeedUDP() {
+		
+		threadUDP.interrupt();
+		threadUDP = null;
+		
+		activeUDPSessions.clear();
+		activeUDPSessions = null;
+		
+	    try {
+	    	socketUDP.close();
+	    	socketUDP = null;
 			
+	    }   
+	    catch (Exception e){
+	    	System.err.println("ex: " + e.getMessage());
+	    }
+	}
+
+	/**
+	 * Send UDP Feed Message to all Users
+	 */
+	private void sendFeedMsg(FeedMsg msg) {
+	    try {
+		    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		    ObjectOutput out = new ObjectOutputStream(bos);
+		    out.write((byte)1);
+	    	out.writeObject(msg);
+	    	
+	    	//vielleicht not thread safe, testing later 
+	    	for ( java.util.Map.Entry<Integer, UDPSession> se : emittentSections.get(msg.getTickerId()).activeUDPSessions.entrySet() ) {
+	    		UDPSession s = se.getValue();
+	    		
+	    		//remove old Sessions, wenn they are 20 seconds not active
+	    		java.util.Calendar calendar = java.util.Calendar.getInstance();
+	    		calendar.add(java.util.Calendar.SECOND, 20);
+	    		if ( s.lastConnectionTime.before(calendar.getTime()) ) {
+	    			emittentSections.get(msg.getTickerId()).activeUDPSessions.remove(se.getKey());
+	    		}
+	    		else {
+	    		
+					//Send FeedMsg async
+					new Thread(new java.lang.Runnable() {
+						private UDPSession session;
+						private ByteArrayOutputStream bos;
+						   
+					    public Runnable init(UDPSession session, ByteArrayOutputStream bos) {
+					    	this.session = session;
+					    	this.bos = bos;
+					    	return this;
+					    }
+					    
+					    @Override
+					    public void run() {
+					    	sendUDPMsg(session, bos);
+					    }
+					}.init(s, bos)).start();
+	    		}
+	    	}
+	    	
+	    	out.close();
+    	    bos.close();
 	    }   
 	    catch (SocketException e){
 	        System.err.println("Socket: " + e.getMessage());
@@ -426,8 +548,90 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	    }
 	}
 	
+	/**
+	 * Send UDP DatagramPacket for UDPSession
+	 */
+	private void sendUDPMsg(UDPSession session, ByteArrayOutputStream bos) {
+	    try {
+	    	DatagramPacket reply = new DatagramPacket(bos.toByteArray(), bos.size(),
+	    			session.address, session.port);
+	    	
+	    	socketUDP.send(reply);
+	    }   
+	    catch (SocketException e){
+	        System.err.println("Socket: " + e.getMessage());
+	    }
+	    catch (IOException e){
+	    	System.err.println("IO: " + e.getMessage());
+	    }
+	}
+		
+	/**
+	 * Process incoming FeedRequest
+	 */
+	private void processFeedRequest(DatagramPacket requestPacket) {
+		try {
+		    ByteArrayInputStream bis = new ByteArrayInputStream(requestPacket.getData());
+		    ObjectInput in = new ObjectInputStream(bis);
+		    FeedRequest feedRequest = (FeedRequest) in.readObject();
+		    in.close();
+		    bis.close();
+
+		    Integer sessionId = feedRequest.getSessionId();
+		    boolean newSession = !this.activeUDPSessions.containsKey(sessionId);
+		    UDPSession sessionUDP;
+		    
+		    if (newSession) {
+		    	sessionId = sessionCounter.getAndIncrement();
+		    	sessionUDP = new UDPSession(feedRequest.getEmittentIds(), requestPacket.getAddress(), requestPacket.getPort());
+		    	
+		    	this.activeUDPSessions.put( sessionId, sessionUDP );
+		    	
+		    	for (Integer emittentId : feedRequest.getEmittentIds()) {
+		    		this.emittentSections.get(emittentId).activeUDPSessions.put(sessionId, sessionUDP);
+		    	}
+		    }
+		    else {
+		    	sessionUDP = this.activeUDPSessions.get(sessionId);
 	
+		    	
+		    	//correct existend Request, wenn another comes !!!
+		    	
+		    	
+		    	//update access time
+		    	sessionUDP.lastConnectionTime = java.util.Calendar.getInstance().getTime();
+		    }
+		    
+		    //send last Market prices to client
+		    if (newSession) {
+			    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+			    ObjectOutput out = new ObjectOutputStream(bos);
+			    out.write((byte)lastCommitedAuftraege.size());
+			    for (java.util.Map.Entry<Integer, Auftrag> ae : lastCommitedAuftraege.entrySet()) {
+			    	Auftrag a = ae.getValue();
+			    	FeedMsg msg = new FeedMsg(msgCounter.getAndDecrement(), a.getId(), ae.getKey(), a.getKaufen(), a.getAnzahl(), this.marketPrices.get(ae.getKey()), a.getStatus());
+			    	out.writeObject(msg);
+			    }
 	
+		    	DatagramPacket reply = new DatagramPacket(bos.toByteArray(), bos.size(),
+		    			sessionUDP.address, sessionUDP.port);
+		    	
+		    	socketUDP.send(reply);
+
+		    	out.close();
+			    bos.close();
+		    }
+		}
+	    catch (SocketException e){
+	        System.err.println("Socket: " + e.getMessage());
+	    }
+	    catch (IOException e){
+	    	System.err.println("IO: " + e.getMessage());
+	    }
+	    catch (Exception e){
+	    	System.err.println(": " + e.getMessage());
+	    }
+	}
 	
 	
 	
@@ -442,9 +646,9 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
     	//initial values
     	boerse.emittents.put("AAPL", new Emittent("AAPL", "Apple Inc."));
     	boerse.emittents.put("RDSA", new Emittent("RDSA", "Royal Dutch Shell"));
-    	boerse.brokers.put(1, new Broker(1, 0f, "localhost:5001", "Daniil Brokers Co.", "123", "Licenze: AA-001"));
-    	boerse.brokers.put(2, new Broker(2, 0f, "localhost:5002", "Zvonek Brokers Co.", "456", "Licenze: AA-002"));
-    	boerse.brokers.put(3, new Broker(3, 0f, "localhost:5003", "Ayrat Brokers Co.", "012", "Licenze: AA-003"));
+    	boerse.brokers.put(1, new Broker(1, 0f, "Daniil Brokers Co.", "localhost:5001", "123", "Licenze: AA-001"));
+    	boerse.brokers.put(2, new Broker(2, 0f, "Zvonek Brokers Co.", "localhost:5002", "456", "Licenze: AA-002"));
+    	boerse.brokers.put(3, new Broker(3, 0f, "Ayrat Brokers Co.", "localhost:5003", "012", "Licenze: AA-003"));
 
         if (System.getSecurityManager() == null) {
             System.setSecurityManager(new SecurityManager());
@@ -471,15 +675,6 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 //            Registry registry = LocateRegistry.getRegistry();
 //            registry.rebind(AdminObjectName, adminStub);
 
-      /*
-            //start UDP
-            boerse.threadUDP = new Thread() {
-                public void run() {
-                	Boerse.startFeedUDP();
-                }
-            };
-
-        */
             System.out.println("Die Boerse ist gestartet");
         }
         catch (AccessControlException e) {

@@ -12,8 +12,10 @@ public class EmittentSection {
 	
 	public java.util.TreeMap<Float, java.util.ArrayList<Auftrag> > sell;
 	public java.util.TreeMap<Float, java.util.ArrayList<Auftrag> > buy;
+
+	public java.util.TreeMap<Integer, UDPSession > sessionsUDP;
 	
-	public java.util.TreeMap<Integer, java.util.ArrayList<Integer> > commitedAuftraege;
+	/*public java.util.TreeMap<Integer, java.util.ArrayList<Integer> > commitedAuftraege;
 	
 	public void setCommitedAuftrage(int auftragId1, int auftragId2) {
 		if (!commitedAuftraege.containsKey(auftragId1))
@@ -23,7 +25,7 @@ public class EmittentSection {
 		if (!commitedAuftraege.containsKey(auftragId2))
 			commitedAuftraege.put(auftragId2, new java.util.ArrayList<Integer>() );
 		commitedAuftraege.get(auftragId2).add(auftragId1);
-	}
+	}*/
 	
 	static class DescendingFloatComparator implements java.util.Comparator<Float> {
 	   	public int compare(Float p1, Float p2)

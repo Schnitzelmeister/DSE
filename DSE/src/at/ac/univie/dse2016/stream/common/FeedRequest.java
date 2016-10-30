@@ -6,31 +6,31 @@ public class FeedRequest implements Serializable {
 
 	private static final long serialVersionUID = 100L;
 	
-	protected Integer clientId;
-	public Integer getClientId() { return clientId; }
+	protected Integer sessionId;
+	public Integer getSessionId() { return sessionId; }
 
 	protected Integer status;
 	public Integer getStatus() { return status; }
 
-	protected String[] tickers;
-	public String[] getTickers() { return tickers; }
+	protected Integer[] emittentIds;
+	public Integer[] getEmittentIds() { return emittentIds; }
 
 
 	public void writeExternal(ObjectOutput out) throws IOException {
-		out.writeInt(clientId);
+		out.writeInt(sessionId);
 		out.writeInt(status);
-		out.writeObject(tickers);
+		out.writeObject(emittentIds);
 	}
 
 	public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
-		clientId = in.readInt();
+		sessionId = in.readInt();
 		status = in.readInt();
-		tickers = (String[])in.readObject();
+		emittentIds = (Integer[])in.readObject();
 	}
 	
-	public FeedRequest(Integer clientId, Integer status, String[] tickers) {
-		this.clientId = clientId;
+	public FeedRequest(Integer sessionId, Integer status, Integer[] emittentIds) {
+		this.sessionId = sessionId;
 		this.status = status;
-		this.tickers = tickers;
+		this.emittentIds = emittentIds;
 	}
 }
