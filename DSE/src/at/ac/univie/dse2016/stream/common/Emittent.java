@@ -35,4 +35,7 @@ public final class Emittent implements Serializable {
 		this.lastPrice = -1;
 	}
 
+	public String toString() { 
+	    return this.ticker + " - " + this.name;
+	} 
 }
