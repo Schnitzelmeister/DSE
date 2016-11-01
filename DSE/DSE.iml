@@ -8,6 +8,7 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" name="io.hawt:hawtio-junit:1.4.11" level="project" />
+    <orderEntry type="library" name="io.hawt:hawtio-junit:1.4." level="project" />
+    <orderEntry type="library" name="org.metawidget.modules:metawidget-miglayout:4.0" level="project" />
   </component>
 </module>

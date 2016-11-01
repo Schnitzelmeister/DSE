@@ -19,7 +19,7 @@ import java.util.*;
 /**
  * Created by mac on 26.10.16.
  */
-public class BrokerAdminGUIController /* extends AbstractController*/ {
+public class BrokerAdminGUIController extends AbstractController {
     @FXML
     public void initialize() {
         //super.connect();

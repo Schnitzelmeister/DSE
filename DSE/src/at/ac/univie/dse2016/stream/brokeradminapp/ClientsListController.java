@@ -31,7 +31,7 @@ import java.rmi.registry.Registry;
  */
 
 
-public class ClientsListController /*extends AbstractController*/ {
+public class ClientsListController extends AbstractController {
 
 	
     //private BrokerAdmin brokerAdmin;
@@ -42,17 +42,9 @@ public class ClientsListController /*extends AbstractController*/ {
     @FXML
     public void initialize() {
 
-        /*ObservableList<Client> data =FXCollections.observableArrayList(
-                new Client(123, 312, 100000, "John"),
-        new Client(1234, 3123, 100000, "John"),
-        new Client(1235, 3124, 100000, "John"),
-         new Client(1236, 3125, 100000, "John")
-        );*/
-
     	ObservableList<Client> data =FXCollections.observableArrayList();
     	try {
-    		for (Client b : Main.brokerAdmin.getClientsList()) 
-    			data.add(new Client(b.getId(), b.getBrokerId(), b.getKontostand(), b.getName()));
+            data.addAll(Main.brokerAdmin.getClientsList());
     	} catch (Exception e) {
             System.err.println("Client exception:");
             e.printStackTrace();
@@ -80,7 +72,7 @@ public class ClientsListController /*extends AbstractController*/ {
         clientList.getColumns().addAll(idColumn, parentIdColumn, kontostandColumn, nameColumn);
         clientList.setItems(data);
 
-     //   super.connect();
+
 
 
     }

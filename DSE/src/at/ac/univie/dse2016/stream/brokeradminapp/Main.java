@@ -54,7 +54,7 @@ public class Main extends Application {
             for (Client b : Main.brokerAdmin.getClientsList())
             	System.out.println(b.getName());
             
-       
+
         } catch (Exception e) {
             System.err.println("Client exception:");
             e.printStackTrace();
