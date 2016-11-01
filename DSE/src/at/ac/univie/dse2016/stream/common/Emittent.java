@@ -5,7 +5,7 @@ import java.io.*;
 public final class Emittent implements Serializable {
 	
 	private static final long serialVersionUID = 100L;
-	
+
 	protected Integer id;
 	public Integer getId() { return id; }
 	
