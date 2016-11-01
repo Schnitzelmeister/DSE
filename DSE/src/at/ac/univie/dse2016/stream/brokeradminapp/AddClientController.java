@@ -16,7 +16,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
 
-public class AddClientController/* extends AbstractController*/ {
+public class AddClientController extends AbstractController {
     @FXML
     private TextField client_id;
     @FXML
@@ -39,8 +39,8 @@ public class AddClientController/* extends AbstractController*/ {
      */
     @FXML
     public void initialize() {
-        //super.connect();
-    	client_id.setText("-1");
+
+    	client_id.setText("generating on Server");
     	parent_id.setText(String.valueOf(Main.brokerId));
     	kontostand.setText("0.00");
     }
