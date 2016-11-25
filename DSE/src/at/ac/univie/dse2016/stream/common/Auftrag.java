@@ -18,6 +18,7 @@ public class Auftrag implements Serializable {
 	
 	protected Integer anzahl;
 	public Integer getAnzahl() { return anzahl; }
+	public void setAnzahl(Integer anzahl) { this.anzahl = anzahl; }
 	
 	protected float bedingung;
 	public float getBedingung() { return bedingung; }
@@ -26,23 +27,29 @@ public class Auftrag implements Serializable {
 	public AuftragStatus getStatus() { return status; }
 	public void setStatus(AuftragStatus status) { this.status = status; }
 
+	
+	protected transient Integer ownerId;
+	//BrokerId oder ClientId
+	public Integer getOwnerId() { return ownerId; }
+
 
 	/**
 	 * Auftrag ohne Bedingung
 	 */
 	public Auftrag(boolean kaufen, String ticker, int anzahl) {
-		this(-1, kaufen, ticker, anzahl, -1);
+		this(-1, -1, kaufen, ticker, anzahl, -1);
 	}
 
 	/**
 	 * Auftrag mit Bedingung
 	 */
 	public Auftrag(boolean kaufen, String ticker, int anzahl, float bedingung) {
-		this(-1, kaufen, ticker, anzahl, bedingung);
+		this(-1, -1, kaufen, ticker, anzahl, bedingung);
 	}
 	
-	public Auftrag(int id, boolean kaufen, String ticker, int anzahl, float bedingung) {
+	public Auftrag(int id, int ownerId, boolean kaufen, String ticker, int anzahl, float bedingung) {
 		this.id = id;
+		this.ownerId = ownerId;
 		this.kaufen = kaufen;
 		this.ticker = ticker;
 		this.anzahl = anzahl;

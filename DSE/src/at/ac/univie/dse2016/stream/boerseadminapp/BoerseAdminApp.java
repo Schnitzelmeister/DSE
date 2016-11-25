@@ -23,7 +23,7 @@ public final class BoerseAdminApp {
 //            System.out.println(boerse.getEmittent().getName());
             
             for (Emittent e : boerse.getEmittentsList())
-            	System.out.println(e.getName() + "/n");
+            	System.out.println(e.getName());
 
             //add new Emittent
             //boerse.emittentAddNew( new Emittent("GAZP", "Gazprom") );

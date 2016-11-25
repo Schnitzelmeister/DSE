@@ -1,11 +1,16 @@
 package at.ac.univie.dse2016.stream.boerse;
-
 import java.rmi.RemoteException;
-
 import at.ac.univie.dse2016.stream.common.*;
+import javax.jws.*;
 
+/**
+ * 
+ * Diese Klasse wird von RMI, SOAP und RESTful (not HTML) verwendet
+ *
+ */
+
+@WebService(targetNamespace = "http://boerse.stream.dse2016.univie.ac.at/", endpointInterface = "at.ac.univie.dse2016.stream.common.BoersePublic", portName = "BoersePublicAdapterPort", serviceName = "BoersePublicAdapterService")
 public class BoersePublicAdapter implements BoersePublic {
-	
 
 	private BoerseServer server;
 	public BoersePublicAdapter(BoerseServer server) { this.server = server; }

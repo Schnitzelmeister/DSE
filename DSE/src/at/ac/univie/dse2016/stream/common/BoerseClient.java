@@ -1,7 +1,7 @@
 package at.ac.univie.dse2016.stream.common;
 
 import java.rmi.RemoteException;
-
+import java.util.Date;
 
 public interface BoerseClient extends BoersePublic {
 	
@@ -37,6 +37,12 @@ public interface BoerseClient extends BoersePublic {
 	 * Get current State des Brokers, ohne Sicherheitspruefung
 	 */
 	public Broker getState(Integer brokerId) throws RemoteException, IllegalArgumentException;
+
+	public java.util.TreeSet<Auftrag> getAuftraege(Integer brokerId) throws RemoteException, IllegalArgumentException;
+
+	public java.util.TreeSet<Transaction> getTransaktionen(Integer brokerId) throws RemoteException, IllegalArgumentException;
+	public java.util.TreeSet<Transaction> getTransaktionen(Integer brokerId, Date afterDate) throws RemoteException, IllegalArgumentException;
+
 	
 	public Report getReport(Integer brokerId) throws RemoteException, IllegalArgumentException;
 }

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions name="BoersePublic" targetNamespace="http://common.stream.dse2016.univie.ac.at/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ns1="http://common.stream.dse2016.univie.ac.at/">
+  <wsdl:types>
+<schema xmlns="http://www.w3.org/2001/XMLSchema">
+  <import namespace="http://common.stream.dse2016.univie.ac.at/" schemaLocation="boersepublicadapter_schema1.xsd"/>
+</schema>
+  </wsdl:types>
+  <wsdl:message name="getEmittentsListResponse">
+    <wsdl:part name="parameters" element="ns1:getEmittentsListResponse">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="IllegalArgumentException">
+    <wsdl:part name="IllegalArgumentException" element="ns1:IllegalArgumentException">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getStatus">
+    <wsdl:part name="parameters" element="ns1:getStatus">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getEmittentsList">
+    <wsdl:part name="parameters" element="ns1:getEmittentsList">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getBrokerNetworkAddressResponse">
+    <wsdl:part name="parameters" element="ns1:getBrokerNetworkAddressResponse">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getBrokerNetworkAddress">
+    <wsdl:part name="parameters" element="ns1:getBrokerNetworkAddress">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getStatusResponse">
+    <wsdl:part name="parameters" element="ns1:getStatusResponse">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="BoersePublic">
+    <wsdl:operation name="getStatus">
+      <wsdl:input name="getStatus" message="ns1:getStatus">
+    </wsdl:input>
+      <wsdl:output name="getStatusResponse" message="ns1:getStatusResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getEmittentsList">
+      <wsdl:input name="getEmittentsList" message="ns1:getEmittentsList">
+    </wsdl:input>
+      <wsdl:output name="getEmittentsListResponse" message="ns1:getEmittentsListResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getBrokerNetworkAddress">
+      <wsdl:input name="getBrokerNetworkAddress" message="ns1:getBrokerNetworkAddress">
+    </wsdl:input>
+      <wsdl:output name="getBrokerNetworkAddressResponse" message="ns1:getBrokerNetworkAddressResponse">
+    </wsdl:output>
+      <wsdl:fault name="IllegalArgumentException" message="ns1:IllegalArgumentException">
+    </wsdl:fault>
+    </wsdl:operation>
+  </wsdl:portType>
+</wsdl:definitions>

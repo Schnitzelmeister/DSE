@@ -1,23 +1,80 @@
 package at.ac.univie.dse2016.stream.broker;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.SocketException;
+import java.net.InetAddress;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.Date;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import at.ac.univie.dse2016.stream.boerse.BoerseAdminAdapter;
 import at.ac.univie.dse2016.stream.boerse.BoerseServer;
 import at.ac.univie.dse2016.stream.boerse.EmittentSection;
+import at.ac.univie.dse2016.stream.boerse.UDPSession;
 import at.ac.univie.dse2016.stream.common.*;
 
 public class BrokerServer implements BrokerAdmin, BrokerClient {
 	
-	public BrokerServer(Integer brokerId) {
+	public BrokerServer(int brokerId, String remoteHostBoerse, int remotePortUDPBoerse, int remotePortRMIBoerse, int localPortRMIBroker) {
 		this.brokerId = brokerId;
+		this.remoteHostBoerse = remoteHostBoerse;
+		this.remotePortUDPBoerse = remotePortUDPBoerse;
+		this.remotePortRMIBoerse = remotePortRMIBoerse;
+		this.localPortRMIBroker = localPortRMIBroker;
 		emittents = new java.util.TreeMap<String, Emittent>();
-		activeAuftraege = new java.util.TreeMap< Integer /* clientId */, java.util.ArrayList<Auftrag> >();
-		auftraegeLog = new java.util.TreeMap< Integer /* clientId */, java.util.ArrayList<Auftrag> >();
 		clients = new java.util.TreeMap<Integer, Client>();
+		auftraege = new java.util.TreeMap< Integer /* auftragId */, Auftrag >();
+		auftraegeLog = new java.util.TreeMap< Integer /* clientId */, java.util.TreeSet<Auftrag> >();
+		transactionLog = new java.util.TreeMap< Integer /* clientId */, java.util.TreeSet<Transaction> >();
+		this.execUDP = null;
+
+        try {
+        	
+        	//get Boerse object
+            Registry registryBoerse = LocateRegistry.getRegistry(this.remoteHostBoerse, this.remotePortRMIBoerse);
+            boerse = (BoerseClient) registryBoerse.lookup("brokerBoerse");
+
+            //get aktual Emittents
+            for (Emittent emittent : boerse.getEmittentsList())
+            	emittents.put(emittent.getTicker(), emittent);
+            
+            //get port from Boerse Settings
+    		if (localPortRMIBroker == -1)
+    		{
+                String host = boerse.getBrokerNetworkAddress(brokerId);
+                String[] ar = host.split(":");
+                this.localPortRMIBroker = Integer.valueOf(ar[1]);
+    		}
+
+    		
+            //publish Broker objects
+            Registry registry = LocateRegistry.createRegistry(this.localPortRMIBroker);
+            BrokerAdminAdapter adminAdapter = new BrokerAdminAdapter(this);
+            BrokerAdmin adminStub =
+                    (BrokerAdmin) UnicastRemoteObject.exportObject(adminAdapter, 0);
+                registry.rebind("adminBroker", adminStub);
+            
+            BrokerClient clientStub =
+                    (BrokerClient) UnicastRemoteObject.exportObject(this, 0);
+            registry.rebind("client", clientStub);
+        
+        } catch (Exception e) {
+            System.err.println("BrokerServer exception:");
+            e.printStackTrace();
+        }
 	}
 
 	/**
@@ -26,19 +83,34 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	private Integer brokerId;
 	
 	/**
+	 * Connection Data
+	 */
+	private String remoteHostBoerse;
+	private Integer remotePortUDPBoerse;
+	private Integer remotePortRMIBoerse;
+	private Integer localPortRMIBroker;
+	private BoerseClient boerse;
+	
+	
+	/**
 	 * Emittents, die auf der Boerse gekauft/verkauft werden duerfen
 	 */
 	private java.util.TreeMap<String, Emittent> emittents;
 
 	/**
-	 * Alle Auftraege des Brokers, die aktuell sind
+	 * Aktuelle Auftraege des Brokers
 	 */
-	private java.util.TreeMap< Integer /* clientId */, java.util.ArrayList<Auftrag> > activeAuftraege;
+	private java.util.TreeMap< Integer /* auftragId */, Auftrag > auftraege;
 
 	/**
 	 * Alle Auftraege des Brokers
 	 */
-	private java.util.TreeMap< Integer /* clientId */, java.util.ArrayList<Auftrag> > auftraegeLog;
+	private java.util.TreeMap< Integer /* clientId */, java.util.TreeSet< Auftrag> > auftraegeLog;
+
+	/**
+	 * Committed Tramsactions, sorted by Date
+	 */
+	private java.util.TreeMap< Integer /* clientId */, java.util.TreeSet<Transaction> > transactionLog;
 
 	/**
 	 * Clienten, die ueber diesen Broker arbeiten duerfen
@@ -89,7 +161,6 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	public java.util.ArrayList<Client> getClientsList() throws RemoteException {
 		java.util.ArrayList<Client> ret = new java.util.ArrayList<Client>(clients.values());
 		return ret;
-
 	}
 
 	
@@ -154,22 +225,102 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	 * Auftrag eines Clients stellen, ohne Sicherheitspruefung
 	 */
 	public Integer auftragAddNew(Integer clientId, Auftrag auftrag) throws RemoteException, IllegalArgumentException {
-		// BoersenMakler
-		/*if (this.parentId == -1) {
-			//Boerse.AuftragAddNew(this.id, auftrag);
-		}
-		else if (boersenMakler == null) {
-			throw new IllegalArgumentException("You cann  Order only with your personal Broker");
+		if ( !clients.containsKey(clientId) )
+			throw new IllegalArgumentException("Client with id=" + clientId + " does not exist");
 
-		}*/
-		return -1;
+		if ( !emittents.containsKey(auftrag.getTicker()) )
+			throw new IllegalArgumentException("Ticker " + auftrag.getTicker() + " does not exist");
+
+		Integer tickerId = emittents.get( auftrag.getTicker() ).getId();
+		boolean buy = auftrag.getKaufen();
+		int anzahl = auftrag.getAnzahl();
+		float bedingung = auftrag.getBedingung();
+		
+		Client client = this.clients.get(clientId);
+		//lock Client
+		synchronized(client) {
+			java.util.TreeMap<Integer, Integer> clientEmittents = client.getDisponibleAccountEmittents();
+			
+			if (buy) {
+				
+				//mit Bedingung
+				if (bedingung > 0) {
+					if (client.getDisponibelstand() < bedingung * anzahl)
+						throw new IllegalArgumentException("Not enough money");
+				}
+				//ohne Bedingung - nothing to check 
+				else if (bedingung == -1) {
+					//if (broker.getDisponibelstand() < marketPrice * anzahl)
+					//	throw new IllegalArgumentException("Not enough money");
+				}
+				else
+					throw new IllegalArgumentException("Illegal Bedingung");
+			}
+			else {
+				if (!clientEmittents.containsKey(tickerId))
+					throw new IllegalArgumentException("Nothing to sell");
+				
+				if (clientEmittents.get(tickerId) < anzahl)
+					throw new IllegalArgumentException("Not enough amount of the Emittent");
+			}
+		}
+		
+		try {
+			int ret = boerse.auftragAddNew(this.brokerId, auftrag);
+			if (buy)
+				client.setDisponibelstand(-bedingung * anzahl);
+			else
+				client.getDisponibleAccountEmittents().put(tickerId, client.getDisponibleAccountEmittents().get(tickerId) - anzahl);
+			
+			auftrag.setStatus(AuftragStatus.Accepted);
+			auftraege.put(ret, auftrag);
+			return ret;
+		}
+		catch (IllegalArgumentException e) {
+			throw e;
+		}
 	}
 
 	/**
 	 * Auftrag eines Clients zurueckrufen, ohne Sicherheitspruefung
 	 */
 	public void auftragCancel(Integer clientId, Integer auftragId) throws RemoteException, IllegalArgumentException {
+		if ( !clients.containsKey(clientId) )
+			throw new IllegalArgumentException("Client with id=" + clientId + " does not exist");
+
+		Client client = this.clients.get(clientId);
+		java.util.TreeMap<Integer, Auftrag> auftraege = client.getAuftraegeList();	
+		if ( !auftraege.containsKey(auftragId) )
+			throw new IllegalArgumentException("Auftrag with id=" + auftragId + " does not exist");
 		
+		Auftrag auftrag = auftraege.get(auftragId);
+		if (auftrag.getStatus() != AuftragStatus.Accepted)
+			throw new IllegalArgumentException("Auftrag with id=" + auftragId + " can not be canceled");
+
+		int tickerId = this.emittents.get( auftrag.getTicker() ).getId();
+		try {
+			boerse.auftragCancel(this.brokerId, auftragId);
+			if (auftrag.getKaufen())
+				client.setDisponibelstand(auftrag.getBedingung() * auftrag.getAnzahl());
+			else
+				client.getDisponibleAccountEmittents().put(tickerId, client.getDisponibleAccountEmittents().get(tickerId) + auftrag.getAnzahl());
+
+		}
+		catch (IllegalArgumentException e) {
+			throw e;
+		}
+		
+		auftrag.setStatus(AuftragStatus.Canceled);
+		setToLog(clientId, auftrag);
+	}
+	
+	private void setToLog(int clientId, Auftrag auftrag) {
+		auftraege.remove(auftrag.getId());
+		
+		if ( auftraegeLog.containsKey(clientId) )
+			auftraegeLog.put(clientId, new java.util.TreeSet<Auftrag>() );
+		
+		auftraegeLog.get(clientId).add(auftrag);
 	}
 	
 	public Report getReport(Integer clientId) throws RemoteException, IllegalArgumentException {
@@ -179,7 +330,31 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	 * Get current State des Clients, ohne Sicherheitspruefung
 	 */
 	public Client getState(Integer clientId) throws RemoteException, IllegalArgumentException {
-		return null;
+		if ( !clients.containsKey(clientId) )
+			throw new IllegalArgumentException("Client with id=" + brokerId + " does not exist");
+
+		return clients.get(clientId);
+	}
+
+	public java.util.TreeSet<Auftrag> getAuftraege(Integer clientId) throws RemoteException, IllegalArgumentException {
+		if ( !clients.containsKey(clientId) )
+			throw new IllegalArgumentException("Client " + String.valueOf(clientId) + " does not exist");
+
+		return auftraegeLog.get(clientId);
+	}
+
+	public java.util.TreeSet<Transaction> getTransaktionen(Integer clientId) throws RemoteException, IllegalArgumentException {
+		if ( !clients.containsKey(clientId) )
+			throw new IllegalArgumentException("Client " + String.valueOf(clientId) + " does not exist");
+
+		return transactionLog.get(clientId);
+	}
+	
+	public java.util.TreeSet<Transaction> getTransaktionen(Integer clientId, Date afterDate) throws RemoteException, IllegalArgumentException {
+		if ( !clients.containsKey(brokerId) )
+			throw new IllegalArgumentException("Client " + String.valueOf(clientId) + " does not exist");
+
+		return new java.util.TreeSet<Transaction> ( transactionLog.get(clientId).headSet( new Transaction(0, 0, 0, afterDate), true ) );
 	}
 
 	/**
@@ -190,7 +365,15 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	 * wenn sie das machen, dann heisst es das sie das Geld zu/von ihrem Konto ueberweisen
 	 */
 	public void tradingAccount(Integer clientId, float amount) throws RemoteException, IllegalArgumentException {
-		
+		if ( !clients.containsKey(clientId) )
+			throw new IllegalArgumentException("Client with id=" + clientId + " does not exist");
+
+		Client client = this.clients.get(clientId);
+		if (amount < 0 && client.getDisponibelstand() < -amount)
+			throw new IllegalArgumentException("Not enough money");
+		client.setDisponibelstand(amount);
+		client.setKontostand(amount);
+		boerse.tradingAccount(this.brokerId, amount);
 	}
 
 	/**
@@ -201,60 +384,265 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	 * wenn sie das machen, dann heisst es das sie die Aktien zu/von ihrem Konto ueberweisen 
 	 */
 	public void tradingAccount(Integer clientId, Integer tickerId, Integer anzahl) throws RemoteException, IllegalArgumentException {
+		if ( !clients.containsKey(clientId) )
+			throw new IllegalArgumentException("Client with id=" + clientId + " does not exist");
+
+		Client client = this.clients.get(clientId);
+		synchronized(client) {
+			//check, ob aktive Auftrage existieren
+			if (anzahl < 0) {
+				for(Auftrag a : client.getAuftraegeList().values()) {
+					if ( this.emittents.get( a.getTicker() ).getId() == tickerId )
+						throw new IllegalArgumentException("There are aktive Auftraege with this emittent");
+				}
+			}
+			
+			java.util.TreeMap<Integer, Integer> clientEmittents = client.getAccountEmittents();
+			if (clientEmittents.containsKey(tickerId)) {
+				if (anzahl < 0 && clientEmittents.get(tickerId) < -anzahl)
+					throw new IllegalArgumentException("Not enough amount of emittent");
+				
+				clientEmittents.put(tickerId, clientEmittents.get(tickerId) + anzahl);
+			}
+			else {
+				if (anzahl < 0)
+					throw new IllegalArgumentException("Not enough amount of emittent");
+				
+				clientEmittents.put(tickerId, anzahl);
+			}
+		}
+		
+		boerse.tradingAccount(this.brokerId, tickerId, anzahl);
 	}
 
+	
+	//UDP-Server stuff
+	/**
+	 * UDP-Thread des Servers
+	 */
+	private ScheduledExecutorService execUDP;
+	private DatagramSocket socketUDP;
+	
+	//Emittents, die via UDP abgehoert sind
+	private Integer[] udpEmittentIds;
+	//UDP Counters - Fehlererkennung
+	private java.util.TreeMap< Integer /* emittentId */, Integer > udpCounters;
+	
+	/**
+	 * Start UDP Listener
+	 */
+	public void getFeedUDP(Integer[] emittentIds) throws IllegalArgumentException {
+        
+		if (emittentIds == null || emittentIds.length == 0)
+			throw new IllegalArgumentException("arg is empty");
+
+		//stop current UDP Listener
+		if (execUDP != null)
+			execUDP.shutdown();
+
+		this.udpEmittentIds = emittentIds;
+		
+		//init counters
+		this.udpCounters = new java.util.TreeMap< Integer /* emittentId */, Integer >();
+		for (byte i = 0; i < this.udpEmittentIds.length; ++i)
+			this.udpCounters.put(this.udpEmittentIds[i], -1);
+		
+		
+		try {
+			socketUDP = new DatagramSocket();
+			execUDP = Executors.newSingleThreadScheduledExecutor();
+	
+			//start UDP Listener
+			execUDP.schedule(new Runnable() {
+				  @Override
+				  public void run() {
+					  listenUDPResponse();
+				  }
+				}, 0, TimeUnit.SECONDS);
+			
+			//start UDP Request every 5 seconds
+			execUDP.scheduleAtFixedRate(new Runnable() {
+			  @Override
+			  public void run() {
+				  sendUDPrequest();
+			  }
+			}, 0, 5, TimeUnit.SECONDS);
+		}
+		catch (Exception e) {
+			
+		}
+	}
+
+	private void listenUDPResponse() {
+	    try {
+	    	byte[] buf = new byte[1024];
+	    	
+	    	do {
+				DatagramPacket requestPacket = new DatagramPacket(buf, buf.length);
+				socketUDP.receive(requestPacket);
+				
+			    ByteArrayInputStream bis = new ByteArrayInputStream(requestPacket.getData());
+			    ObjectInput in = new ObjectInputStream(bis);
+			    byte len = in.readByte();
+			    for (byte i = 0; i < len; ++i) {
+			    	processFeedMsg((FeedMsg) in.readObject());
+			    }
+			    in.close();
+			    bis.close();
+			    
+	    	} while (true);
+	    }   
+	    catch (SocketException e){
+	        System.err.println("Socket: " + e.getMessage());
+	    }
+	    catch (IOException e){
+	    	System.err.println("IO: " + e.getMessage());
+	    }
+	    catch (Exception e){
+	    	System.err.println("Exception: " + e.getMessage());
+	    }
+	}
+	
+	private void processFeedMsg(FeedMsg feedMsg) {
+		
+		//Fehlererkennung
+		if (this.udpCounters.get(feedMsg.getTickerId()) != -1 && feedMsg.getCounter() == -1) {
+
+			//Fehler - mach etwas, vielleicht kan man einfach boerse.getState aufrufen
+			if (feedMsg.getCounter() != this.udpCounters.get(feedMsg.getTickerId()) + 1) {
+				//updateStatus();
+			}
+		}
+		
+		//search if this Auftrag Data is our Client Auftrag 
+		if (this.auftraege.containsKey(feedMsg.getId())) {
+			Auftrag clientAuftrag = this.auftraege.get( feedMsg.getId() );
+			Client client = this.clients.get(clientAuftrag.getOwnerId());
+			
+			if (feedMsg.getStatus() == AuftragStatus.Canceled) {
+				if (clientAuftrag.getKaufen())
+					client.setDisponibelstand(clientAuftrag.getBedingung() * clientAuftrag.getAnzahl());
+				
+				
+
+				clientAuftrag.setStatus(AuftragStatus.Canceled);
+				setToLog(clientAuftrag.getOwnerId(), clientAuftrag);
+			}
+			else if (feedMsg.getStatus() == AuftragStatus.Bearbeitet) {
+				if (clientAuftrag.getKaufen()) {
+					client.setKontostand(-feedMsg.getPrice() * feedMsg.getAnzahl());
+					
+					if (client.getAccountEmittents().containsKey(feedMsg.getTickerId()))
+						client.getAccountEmittents().put(feedMsg.getTickerId(), client.getAccountEmittents().get(feedMsg.getTickerId()) + feedMsg.getAnzahl());
+					else
+						client.getAccountEmittents().put(feedMsg.getTickerId(), feedMsg.getAnzahl());
+				}
+				else {
+					client.setKontostand(feedMsg.getPrice() * feedMsg.getAnzahl());
+					client.getAccountEmittents().put(feedMsg.getTickerId(), client.getAccountEmittents().get(feedMsg.getTickerId()) - feedMsg.getAnzahl());
+				}
+
+				clientAuftrag.setStatus(AuftragStatus.Canceled);
+				setToLog(clientAuftrag.getOwnerId(), clientAuftrag);
+			
+			}
+			else if (feedMsg.getStatus() == AuftragStatus.TeilweiseBearbeitet) {
+				
+			}
+			else
+				throw new IllegalArgumentException("BROKER ERROR - impossible!!!");
+		}
+		
+		feedMsg.getId2();
+	}
+	
+	
+	private void sendUDPrequest() {
+		
+	    try {
+		    ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		    ObjectOutput out = new ObjectOutputStream(bos);
+	    	out.writeObject(new FeedRequest(this.udpEmittentIds));
+	    	
+			DatagramPacket requestPacket = new DatagramPacket(bos.toByteArray(), bos.size(), InetAddress.getByName(this.remoteHostBoerse), this.remotePortUDPBoerse);
+			socketUDP.send(requestPacket);
+			
+	    	out.close();
+    	    bos.close();
+    	}   
+	    catch (SocketException e){
+	        System.err.println("Socket: " + e.getMessage());
+	    }
+	    catch (IOException e){
+	    	System.err.println("IO: " + e.getMessage());
+	    }
+	}
+
+	
+	/**
+	 * Stop UDP Listener
+	 */
+	public void stopFeedUDP() throws IllegalArgumentException {
+		socketUDP.close();
+		socketUDP = null;
+		
+		if (execUDP != null)
+			execUDP.shutdown();
+		execUDP = null;
+	}
 	
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
 
-		Integer brokerId = Integer.valueOf(args[0]);
-		BrokerServer brokerServer = new BrokerServer(brokerId);
-		
         if (System.getSecurityManager() == null) {
-            System.setSecurityManager(new SecurityManager());
-        }
-        try {
-        	
-            Registry registryBoerse = LocateRegistry.getRegistry(10001);
-            BoerseClient boerse = (BoerseClient) registryBoerse.lookup("brokerBoerse");
-
-            //brokerServer.emittents = ;
-            for (Emittent e : boerse.getEmittentsList())
-            	System.out.println(e.getTicker());
-
-            Broker brokerState = boerse.getState(brokerId);
-
-            System.out.println(brokerState.getId());
-            System.out.println(brokerState.getName());
-            System.out.println(brokerState.getKontostand());
-            
-            
-            String host = boerse.getBrokerNetworkAddress(brokerId);
-            String[] ar = host.split(":");
-            int port = Integer.valueOf(ar[1]);
-            host = ar[0];
-            
-            Registry registry = LocateRegistry.createRegistry(port);
-            
-            BrokerAdminAdapter adminAdapter = new BrokerAdminAdapter(brokerServer);
-            BrokerAdmin adminStub =
-                    (BrokerAdmin) UnicastRemoteObject.exportObject(adminAdapter, 0);
-                registry.rebind("adminBroker", adminStub);
-            
-            BrokerClient clientStub =
-                    (BrokerClient) UnicastRemoteObject.exportObject(brokerServer, 0);
-            registry.rebind("client", clientStub);
-            
-            System.out.println("Der Broker " + brokerState.getName() + " ist gestartet");
-            System.out.println("Hostname=" + host + ", port=" + port);
-        
-        } catch (Exception e) {
-            System.err.println("Client exception:");
-            e.printStackTrace();
+            //System.setSecurityManager(new SecurityManager());
         }
 
+		if (args.length == 0)
+			throw new IllegalArgumentException("arguments: brokerId {remoteHostBoerse remotePortUDPBoerse remotePortRMIBoerse localPortRMIBroker}");
+		
+		Integer brokerId = Integer.valueOf(args[0]);
+		String remoteHostBoerse = "localhost";
+		int remotePortUDPBoerse = 10000;
+		int remotePortRMIBoerse = 10001;
+		if (args.length > 1)
+			remoteHostBoerse = args[1];
+		if (args.length > 2)
+			remotePortUDPBoerse = Integer.valueOf(args[2]);
+		if (args.length > 3)
+			remotePortRMIBoerse = Integer.valueOf(args[3]);
+
+        int localPortRMIBroker = -1;
+		if (args.length > 4)
+			localPortRMIBroker = Integer.valueOf(args[4]);
+		
+		BrokerServer brokerServer = new BrokerServer(brokerId, remoteHostBoerse, remotePortUDPBoerse, remotePortRMIBoerse, localPortRMIBroker);
+		localPortRMIBroker = brokerServer.localPortRMIBroker;
+		
+		//initial Data
+		try {
+			switch (brokerId) {
+			case 1: 
+				brokerServer.clientAddNew( new Client(brokerId, "Daniil 1") );
+				brokerServer.clientAddNew( new Client(brokerId, "Daniil 2") );
+				break;
+			case 2: 
+				brokerServer.clientAddNew( new Client(brokerId, "Jakub 1") );
+				brokerServer.clientAddNew( new Client(brokerId, "Jakub 2") );
+				break;
+			case 3: 
+				brokerServer.clientAddNew( new Client(brokerId, "Ayrat 1") );
+				brokerServer.clientAddNew( new Client(brokerId, "Ayrat 2") );
+				break;
+			}
+		}
+		catch(Exception e) {
+			e.printStackTrace();
+		}
+		
+        System.out.println("Der Broker id=" + brokerId + " ist gestartet, RMI port = "+ localPortRMIBroker);
 	}
 
 }

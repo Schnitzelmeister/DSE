@@ -2,6 +2,7 @@ package at.ac.univie.dse2016.stream.common;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
+import java.util.Date;
 
 
 public interface BrokerClient extends Remote {
@@ -20,6 +21,11 @@ public interface BrokerClient extends Remote {
 	 * Get current State des Clients, ohne Sicherheitspruefung
 	 */
 	public Client getState(Integer clientId) throws RemoteException, IllegalArgumentException;
+
+	public java.util.TreeSet<Auftrag> getAuftraege(Integer clientId) throws RemoteException, IllegalArgumentException;
+
+	public java.util.TreeSet<Transaction> getTransaktionen(Integer clientId) throws RemoteException, IllegalArgumentException;
+	public java.util.TreeSet<Transaction> getTransaktionen(Integer clientId, Date afterDate) throws RemoteException, IllegalArgumentException;
 
 	/**
 	 * Einzahlen/auszahlen von einem Client

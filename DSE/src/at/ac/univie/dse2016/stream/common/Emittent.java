@@ -21,6 +21,8 @@ public final class Emittent implements Serializable {
 	public float getLastPrice() { return lastPrice; }
 	public void setLastPrise(float lastPrice) { this.lastPrice = lastPrice; }
 
+	public Emittent() {}
+	
 	public Emittent(String ticker, String name) {
 		this.id = -1;
 		this.ticker = ticker;

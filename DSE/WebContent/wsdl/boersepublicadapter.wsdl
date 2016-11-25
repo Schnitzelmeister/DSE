@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions name="BoersePublicAdapterService" targetNamespace="http://boerse.stream.dse2016.univie.ac.at/" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://boerse.stream.dse2016.univie.ac.at/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ns1="http://common.stream.dse2016.univie.ac.at/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/">
+  <wsdl:import namespace="http://common.stream.dse2016.univie.ac.at/" location="BoersePublic.wsdl">
+    </wsdl:import>
+  <wsdl:binding name="BoersePublicAdapterServiceSoapBinding" type="ns1:BoersePublic">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="getStatus">
+      <soap:operation soapAction="urn:GetStatus" style="document"/>
+      <wsdl:input name="getStatus">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getStatusResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getEmittentsList">
+      <soap:operation soapAction="urn:GetEmittentsList" style="document"/>
+      <wsdl:input name="getEmittentsList">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getEmittentsListResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getBrokerNetworkAddress">
+      <soap:operation soapAction="urn:GetBrokerNetworkAddress" style="document"/>
+      <wsdl:input name="getBrokerNetworkAddress">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getBrokerNetworkAddressResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+      <wsdl:fault name="IllegalArgumentException">
+        <soap:fault name="IllegalArgumentException" use="literal"/>
+      </wsdl:fault>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="BoersePublicAdapterService">
+    <wsdl:port name="BoersePublicAdapterPort" binding="tns:BoersePublicAdapterServiceSoapBinding">
+      <soap:address location="http://localhost:8080/DSE/services/BoersePublicAdapterPort"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

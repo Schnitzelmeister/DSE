@@ -1,7 +1,7 @@
 package at.ac.univie.dse2016.stream.common;
 
 public enum AuftragStatus {
-	Init (0), Accepted (1), Bearbeitet (2), Canceled (3);
+	Init (0), Accepted (1), Bearbeitet (2), TeilweiseBearbeitet(3), Canceled (4);
 	
 	private Integer ival;
 	

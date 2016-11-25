@@ -1,0 +1,53 @@
+<xs:schema xmlns:tns="http://common.stream.dse2016.univie.ac.at/" xmlns:xs="http://www.w3.org/2001/XMLSchema" attributeFormDefault="unqualified" elementFormDefault="unqualified" targetNamespace="http://common.stream.dse2016.univie.ac.at/">
+  <xs:element name="getBrokerNetworkAddress" type="tns:getBrokerNetworkAddress"/>
+  <xs:element name="getBrokerNetworkAddressResponse" type="tns:getBrokerNetworkAddressResponse"/>
+  <xs:element name="getEmittentsList" type="tns:getEmittentsList"/>
+  <xs:element name="getEmittentsListResponse" type="tns:getEmittentsListResponse"/>
+  <xs:element name="getStatus" type="tns:getStatus"/>
+  <xs:element name="getStatusResponse" type="tns:getStatusResponse"/>
+  <xs:complexType name="getStatus">
+    <xs:sequence/>
+  </xs:complexType>
+  <xs:complexType name="getStatusResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="return" type="tns:boerseStatus"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="getEmittentsList">
+    <xs:sequence/>
+  </xs:complexType>
+  <xs:complexType name="getEmittentsListResponse">
+    <xs:sequence>
+      <xs:element maxOccurs="unbounded" minOccurs="0" name="return" type="tns:emittent"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType final="extension restriction" name="emittent">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="name" type="xs:string"/>
+      <xs:element minOccurs="0" name="ticker" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="getBrokerNetworkAddress">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="arg0" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="getBrokerNetworkAddressResponse">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="return" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:simpleType name="boerseStatus">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Open"/>
+      <xs:enumeration value="Closed"/>
+      <xs:enumeration value="Error"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="IllegalArgumentException" type="tns:IllegalArgumentException"/>
+  <xs:complexType name="IllegalArgumentException">
+    <xs:sequence>
+      <xs:element minOccurs="0" name="message" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
