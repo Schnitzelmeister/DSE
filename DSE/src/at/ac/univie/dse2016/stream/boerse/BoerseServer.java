@@ -13,6 +13,7 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 
+import at.ac.univie.dse2016.stream.brokeradminapp.BrokerPublicRESTful;
 import at.ac.univie.dse2016.stream.common.*;
 
 public final class BoerseServer implements BoerseAdmin, BoerseClient {
@@ -1076,7 +1077,8 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
                 new org.apache.cxf.jaxrs.lifecycle.SingletonResourceProvider( new BoersePublicRESTful(boerse) ) );
             sf.setAddress("http://localhost:9999/rest/");
             org.apache.cxf.endpoint.Server server = sf.create();
-             
+
+
             // destroy the server
             // uncomment when you want to close/destroy it
             // server.destroy();
