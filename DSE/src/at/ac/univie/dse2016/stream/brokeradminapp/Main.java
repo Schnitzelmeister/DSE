@@ -34,8 +34,9 @@ public class Main extends Application {
 		
         if (System.getSecurityManager() == null) {
             System.setSecurityManager(new SecurityManager());
-        }
+        } /*
         try {
+
             Registry registryBoerse = LocateRegistry.getRegistry(10001);
             BoersePublic boerse = (BoersePublic) registryBoerse.lookup("public");
 
@@ -60,7 +61,7 @@ public class Main extends Application {
             System.err.println("Client exception:");
             e.printStackTrace();
         }
-
+*/
         launch(args);
     }
 }

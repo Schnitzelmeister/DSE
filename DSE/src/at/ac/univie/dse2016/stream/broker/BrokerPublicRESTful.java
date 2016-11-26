@@ -17,6 +17,20 @@ public class BrokerPublicRESTful {
     private BrokerServer server;
     public BrokerPublicRESTful(BrokerServer server) { this.server = server; }
 
+
+    /**
+     ******** LINKS: *******
+     *
+     * http://localhost:30001/rest/public/client/     - Alle Clienten ausgeben
+     *
+     * http://localhost:30001/rest/public/client/{name}/broker/{broker_id} - Neuen Client Add
+     *
+     * http://localhost:30001/rest/public/client/id/{id}/name/{name}/broker/{broker_id}/kontostand/{kontostand} - Edit Client
+     *
+     * http://localhost:30001/rest/public/client/lock/id/{id}/      - Lock Client
+     *
+     *
+     */
     /**
      * Einen neuen Client erzeugen
      * @param broker_id
@@ -54,7 +68,7 @@ public class BrokerPublicRESTful {
     @POST
     @Path("/client/lock/id/{id}/")
     @Produces(MediaType.TEXT_HTML)
-    public void clientEdit(@PathParam("id") Integer id) throws RemoteException {
+    public void clientLock(@PathParam("id") Integer id) throws RemoteException {
         Client client = new Client(id, 0,0,"0");
         server.clientLock(client);
     }
@@ -66,8 +80,9 @@ public class BrokerPublicRESTful {
      */
     @GET
     @Path("/client/")
-    @Produces(MediaType.TEXT_PLAIN)
-    public List<Client> getClientsList() throws RemoteException {
-        return server.getClientsList();
+    @Produces(MediaType.APPLICATION_JSON)
+    public String getClientsList() throws RemoteException {
+        System.out.println("HEllo world");
+        return server.getClientsList().toString();
     }
 }

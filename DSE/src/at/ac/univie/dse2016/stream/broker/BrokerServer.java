@@ -89,12 +89,12 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
             System.out.println("Web service status = " + status);
             
             //publish REST
-            org.apache.cxf.jaxrs.JAXRSServerFactoryBean sf = new org.apache.cxf.jaxrs.JAXRSServerFactoryBean();
-            sf.setResourceClasses(BoersePublicRESTful.class);
-            sf.setResourceProvider(BoersePublicRESTful.class, 
-                new org.apache.cxf.jaxrs.lifecycle.SingletonResourceProvider( new BrokerPublicRESTful(this) ) );
-            sf.setAddress(this.localRESTHostBroker);
-            org.apache.cxf.endpoint.Server server = sf.create();
+			org.apache.cxf.jaxrs.JAXRSServerFactoryBean sf = new org.apache.cxf.jaxrs.JAXRSServerFactoryBean();
+			sf.setResourceClasses(BrokerPublicRESTful.class);
+			sf.setResourceProvider(BrokerPublicRESTful.class,
+					new org.apache.cxf.jaxrs.lifecycle.SingletonResourceProvider( new BrokerPublicRESTful(this) ) );
+			sf.setAddress(this.localRESTHostBroker);
+			org.apache.cxf.endpoint.Server server = sf.create();
             
             
             

@@ -26,7 +26,15 @@ public class Client implements Serializable {
 		this.parentId = parentId;
 	}
 
-
+	@Override
+	public String toString() {
+		return "Client{" +
+				"id=" + id +
+				", parentId=" + parentId +
+				", kontostand=" + kontostand +
+				", name='" + name + '\'' +
+				'}';
+	}
 
 	/**
 	 * das Geld auf dem Tradingskonto in EUR
