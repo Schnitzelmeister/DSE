@@ -7,9 +7,13 @@ import java.rmi.RemoteException;
 
 import javax.jws.WebParam;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.PathParam;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.core.MediaType;
 
 @Path("/public")
@@ -44,19 +48,19 @@ public class BoersePublicRESTful {
 	public String getEmittentsListHTML() throws RemoteException {
 		StringBuilder sb = new StringBuilder("<html><title>BoerseStatus</title><body><ul>");
 		for(Emittent e : server.getEmittentsList()) {
-			sb.append("<li>");
+			sb.append("<li><div>");
 			sb.append(e.getTicker());
 			sb.append(" - ");
 			sb.append(e.getName());
-			sb.append("</li>");
+			sb.append("<form action=\"edit_emittent\" method=\"post\"><input type=\"hidden\" name=\"id\" value=\""+ e.getId() +"\"><input type=\"hidden\" name=\"ticker\" value=\""+ e.getTicker() +"\">Name:<input type=\"text\" name=\"name\" value=\""+ e.getName() +"\"><input type=\"submit\" value=\"Update\"></form>"
+					+ "<form action=\"lock_emittent\" method=\"post\"><input type=\"hidden\" name=\"id\" value=\""+ e.getId() +"\"><input type=\"hidden\" name=\"ticker\" value=\""+ e.getTicker() +"\"><input type=\"submit\" value=\"Remove\"></form>"
+					+ "</div></li>");
 		}
-		sb.append("</ul></html>");
+		sb.append("</ul><br><form action=\"add_new_emittent\" method=\"post\">Ticker: <input type=\"text\" name=\"ticker\"><br>Name: <input type=\"text\" name=\"name\"><br><input type=\"submit\" value=\"Add New\">"
+		+ "</form></html>");
 		return sb.toString();
 	}
 	
-	/**
-	 * Get all Emitents
-	 */
 	@GET
 	@Path("/emittents")
 	@Produces(MediaType.TEXT_PLAIN)
@@ -75,16 +79,109 @@ public class BoersePublicRESTful {
 	 */
 	
 	@GET
-	@Path("/broker_network_address/{broker_id}")
+	@Path("/broker_network_address/{broker_id}/{resourceKind}")
 	@Produces(MediaType.TEXT_HTML)
 	public String getBrokerNetworkAddressHTML(@PathParam("broker_id") Integer brokerId, @WebParam(name = "resourceKind") NetworkResource resourceKind) throws RemoteException {
-		return "<html><title>broker_network_address</title><body><h1>broker_network_address = " + server.getBrokerNetworkAddress(brokerId, resourceKind) + "</h1></body></html>";
+		return "<html><title>broker_network_address</title><body><h1>broker_network_address (" + resourceKind.toString() + ") = " + server.getBrokerNetworkAddress(brokerId, resourceKind) + "</h1></body></html>";
 	}
 
 	@GET
-	@Path("/broker_network_address/{broker_id}")
+	@Path("/broker_network_address/{broker_id}/{resourceKind}")
 	@Produces(MediaType.TEXT_PLAIN)
 	public String getBrokerNetworkAddress(@PathParam("broker_id") Integer brokerId, @WebParam(name = "resourceKind") NetworkResource resourceKind) throws RemoteException {
 		return server.getBrokerNetworkAddress(brokerId, resourceKind);
+	}
+	
+	
+	
+	/**
+	 * AddNew Emittent, Admin's Function
+	 */
+	@POST
+    @Path("/add_new_emittent")
+	@Produces(MediaType.TEXT_HTML)
+	public String emittentAddNewHTML(@FormParam("ticker") String ticker, @FormParam("name") String name) throws RemoteException, IllegalArgumentException {
+		try {
+			server.emittentAddNew( new Emittent(ticker, name) );
+			return getEmittentsListHTML();
+		}
+		catch (Exception e) {
+			return e.getMessage();
+		}
+	}
+
+	@POST
+    @Path("/add_new_emittent")
+	@Produces(MediaType.TEXT_PLAIN)
+	public String emittentAddNew(@FormParam("ticker") String ticker, @FormParam("name") String name) throws RemoteException, IllegalArgumentException {
+		StringBuilder sb = new StringBuilder();
+		try {
+			sb.append( "ok - " + server.emittentAddNew( new Emittent(ticker, name) ).toString() );
+		}
+		catch (Exception e) {
+			sb.append( e.getMessage() );
+		}
+		return sb.toString(); 
+	}
+
+	/**
+	 * Edit Emittent, Admin's Function
+	 */
+	//@PUT
+	@POST
+    @Path("/edit_emittent")
+	@Produces(MediaType.TEXT_HTML)
+	public String emittentEditHTML(@FormParam("id") Integer id, @FormParam("ticker") String ticker, @FormParam("name") String name) throws RemoteException, IllegalArgumentException {
+		try {
+			server.emittentEdit( new Emittent(id, ticker, name) );
+			return getEmittentsListHTML();
+		}
+		catch (Exception e) {
+			return e.getMessage();
+		}
+	}
+	
+	@PUT
+    @Path("/edit_emittent")
+	@Produces(MediaType.TEXT_PLAIN)
+	public String emittentEdit(@FormParam("id") Integer id, @FormParam("ticker") String ticker, @FormParam("name") String name) throws RemoteException, IllegalArgumentException {
+		try {
+			server.emittentEdit( new Emittent(id, ticker, name) );
+			return "ok";
+		}
+		catch (Exception e) {
+			return e.getMessage();
+		}
+	}
+	
+	
+	/**
+	 * Remove Emittent, Admin's Function
+	 */
+	//@DELETE
+	@POST
+    @Path("/lock_emittent")
+	@Produces(MediaType.TEXT_HTML)
+	public String emittentLockHTML(@FormParam("id") Integer id, @FormParam("ticker") String ticker) throws RemoteException, IllegalArgumentException {
+		try {
+			server.emittentLock( new Emittent(id, ticker, "") );
+			return getEmittentsListHTML();
+		}
+		catch (Exception e) {
+			return e.getMessage();
+		}
+	}
+
+	@DELETE
+    @Path("/lock_emittent")
+	@Produces(MediaType.TEXT_PLAIN)
+	public String emittentLock(@FormParam("id") Integer id, @FormParam("ticker") String ticker) throws RemoteException, IllegalArgumentException {
+		try {
+			server.emittentLock( new Emittent(id, ticker, "") );
+			return "ok";
+		}
+		catch (Exception e) {
+			return e.getMessage();
+		}
 	}
 }

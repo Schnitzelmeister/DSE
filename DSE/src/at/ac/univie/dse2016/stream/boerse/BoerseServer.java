@@ -124,7 +124,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 		
 		Emittent actual_emitent = emittents.get(emittent.getTicker());
 		
-		if (actual_emitent.getId() != emittent.getId())
+		if (actual_emitent.getId().intValue() != emittent.getId().intValue())
 			throw new IllegalArgumentException("Ticker " + emittent.getTicker() + " has other Id");
 	
 		actual_emitent.setName(emittent.getName());
@@ -138,7 +138,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 			throw new IllegalArgumentException("Ticker " + emittent.getTicker() + " does not exist");
 		
 		Emittent actualEmittent = emittents.get(emittent.getTicker());
-		if (actualEmittent.getId() != emittent.getId())
+		if (actualEmittent.getId().intValue() != emittent.getId().intValue())
 			throw new IllegalArgumentException("Ticker " + emittent.getTicker() + " has other Id");
 
 		synchronized(emittents) {
@@ -1044,12 +1044,16 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
     	BoerseServer boerse = new BoerseServer(portUDP);
     	
     	//initial values
-    	boerse.emittents.put("AAPL", new Emittent("AAPL", "Apple Inc."));
-    	boerse.emittents.put("RDSA", new Emittent("RDSA", "Royal Dutch Shell"));
-    	boerse.brokers.put(1, new Broker(1, 0f, "Daniil Brokers Co.", "localhost:5001", "http://localhost:20001/WebServices/public", "http://localhost:30001/rest/", "123", "Licenze: AA-001"));
-    	boerse.brokers.put(2, new Broker(2, 0f, "Zvonek Brokers Co.", "localhost:5002", "http://localhost:20002/WebServices/public", "http://localhost:30002/rest/", "456", "Licenze: AA-002"));
-    	boerse.brokers.put(3, new Broker(3, 0f, "Ayrat Brokers Co.", "localhost:5003", "http://localhost:20003/WebServices/public", "http://localhost:30003/rest/", "012", "Licenze: AA-003"));
-
+    	try {
+	    	boerse.emittentAddNew( new Emittent("AAPL", "Apple Inc.") );
+	    	boerse.emittentAddNew( new Emittent("RDSA", "Royal Dutch Shell") );
+	    	boerse.brokerAddNew( new Broker(1, 0f, "Daniil Brokers Co.", "localhost:5001", "http://localhost:20001/WebServices/public", "http://localhost:30001/rest/", "123", "Licenze: AA-001") );
+	    	boerse.brokerAddNew( new Broker(2, 0f, "Zvonek Brokers Co.", "localhost:5002", "http://localhost:20002/WebServices/public", "http://localhost:30002/rest/", "456", "Licenze: AA-002") );
+	    	boerse.brokerAddNew( new Broker(3, 0f, "Ayrat Brokers Co.", "localhost:5003", "http://localhost:20003/WebServices/public", "http://localhost:30003/rest/", "012", "Licenze: AA-003") );
+    	}
+    	catch (RemoteException e) {
+    		
+    	}
     	
         if (System.getSecurityManager() == null) {
             //System.setSecurityManager(new SecurityManager());

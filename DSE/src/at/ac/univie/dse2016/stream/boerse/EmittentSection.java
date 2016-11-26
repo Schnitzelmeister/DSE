@@ -11,6 +11,7 @@ public class EmittentSection {
 	public EmittentSection() {
 		sell = new java.util.TreeMap<Float, java.util.TreeSet<Auftrag> >();
 		buy = new java.util.TreeMap<Float, java.util.TreeSet<Auftrag> >(new DescendingFloatComparator());
+		msgCounter = new AtomicInteger();
 		msgCounter.set(0);
 	}
 	
