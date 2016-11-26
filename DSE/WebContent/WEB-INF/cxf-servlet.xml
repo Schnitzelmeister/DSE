@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <beans xmlns="http://www.springframework.org/schema/beans"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:jaxws="http://cxf.apache.org/jaxws"
-	xmlns:soap="http://cxf.apache.org/bindings/soap"
-	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd http://cxf.apache.org/bindings/soap http://cxf.apache.org/schemas/configuration/soap.xsd http://cxf.apache.org/jaxws http://cxf.apache.org/schemas/jaxws.xsd">
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:jaxws="http://cxf.apache.org/jaxws"
+	   xmlns:soap="http://cxf.apache.org/bindings/soap" xmlns:util="http://www.springframework.org/schema/util"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd http://cxf.apache.org/bindings/soap http://cxf.apache.org/schemas/configuration/soap.xsd http://cxf.apache.org/jaxws http://cxf.apache.org/schemas/jaxws.xsd http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
 	<jaxws:endpoint xmlns:tns="http://common.stream.dse2016.univie.ac.at/"
 		id="boersepublicadapter" implementor="at.ac.univie.dse2016.stream.boerse.BoersePublicAdapter"
 		wsdlLocation="wsdl/boersepublicadapter.wsdl" endpointName="tns:BoersePublicAdapterPort"
@@ -11,4 +11,12 @@
 			<bean class="org.apache.cxf.feature.LoggingFeature" />
 		</jaxws:features>
 	</jaxws:endpoint>
+
+		<bean id="jaxbProvider" class="org.apache.cxf.jaxrs.provider.json.JSONProvider">
+			<property name="namespaceMap" ref="jsonNamespaceMap"/>
+		</bean>
+		<util:map id="jsonNamespaceMap" map-class="java.util.Hashtable">
+			<entry key="http://www.example.org/books" value="b"/>
+		</util:map>
+
 </beans>

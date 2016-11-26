@@ -25,6 +25,7 @@ public class Main extends Application {
         primaryStage.setTitle("Hello World");
         primaryStage.setScene(new Scene(root));
         primaryStage.show();
+
     }
 
 
@@ -33,28 +34,29 @@ public class Main extends Application {
 		brokerId = Integer.valueOf(args[0]);
 		
         if (System.getSecurityManager() == null) {
-            System.setSecurityManager(new SecurityManager());
+           // System.setSecurityManager(new SecurityManager());
         }
         try {
+
             Registry registryBoerse = LocateRegistry.getRegistry(10001);
             BoersePublic boerse = (BoersePublic) registryBoerse.lookup("public");
 
-            String host = boerse.getBrokerNetworkAddress(brokerId, NetworkResource.REST);
+            String host = boerse.getBrokerNetworkAddress(brokerId, NetworkResource.RMI);
             String[] ar = host.split(":");
             int port = Integer.valueOf(ar[1]);
             host = ar[0];
 
-            
+
             Registry registry = LocateRegistry.getRegistry(host, port);
             brokerAdmin = (BrokerAdmin) registry.lookup("adminBroker");
 
-            
+
             Main.brokerAdmin.clientAddNew( new Client(brokerId, "Mr.Muster") );
             Main.brokerAdmin.clientAddNew( new Client(brokerId, "Mr.Muster 2") );
 
             for (Client b : Main.brokerAdmin.getClientsList())
-            	System.out.println(b.getName());
-            
+                System.out.println(b.getName());
+
 
         } catch (Exception e) {
             System.err.println("Client exception:");
