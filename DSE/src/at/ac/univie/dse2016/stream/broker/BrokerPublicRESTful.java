@@ -82,7 +82,6 @@ public class BrokerPublicRESTful {
     @Path("/client/")
     @Produces(MediaType.APPLICATION_JSON)
     public String getClientsList() throws RemoteException {
-        System.out.println("HEllo world");
         return server.getClientsList().toString();
     }
 }
