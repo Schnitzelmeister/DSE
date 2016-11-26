@@ -13,7 +13,7 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 
-import at.ac.univie.dse2016.stream.brokeradminapp.BrokerPublicRESTful;
+import at.ac.univie.dse2016.stream.broker.BrokerPublicRESTful;
 import at.ac.univie.dse2016.stream.common.*;
 
 public final class BoerseServer implements BoerseAdmin, BoerseClient {
@@ -165,7 +165,8 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 		
 		Broker actualBroker;
 		synchronized(brokers) {
-			actualBroker = new Broker(brokers.size() + 1, broker.getKontostand(), broker.getName(), broker.getPhone(), broker.getLicense(), broker.getNetworkAddress());
+			actualBroker = new Broker(brokers.size() + 1, broker.getKontostand(), broker.getName(), broker.getNetworkRMIAddress(), 
+					broker.getNetworkSOAPAddress(), broker.getNetworkRESTAddress(), broker.getPhone(), broker.getLicense());
 			brokers.put(actualBroker.getId(), actualBroker);
 			transactionLog.put(actualBroker.getId(), new java.util.TreeSet<Transaction>( new DescendingTransactionDateComparator() ) );
 		}
@@ -780,11 +781,19 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	 * Normaleweise sollten Clients die Adresse ihrer Brokers kennen
 	 * einfachheitshalber bekommt ein Client diese Adresse mithilfe dieser Methode, z.B. localhost:12001
 	 */
-	public String getBrokerNetworkAddress(Integer brokerId) throws RemoteException, IllegalArgumentException {
+	public String getBrokerNetworkAddress(Integer brokerId, NetworkResource resourceKind) throws RemoteException, IllegalArgumentException {
+		if ( resourceKind == NetworkResource.UDP )
+			throw new IllegalArgumentException("Broker has no UDP");
+
 		if ( !brokers.containsKey(brokerId) )
 			throw new IllegalArgumentException("Broker with id=" + brokerId + " does not exist");
 
-		return brokers.get(brokerId).getNetworkAddress();
+		if (resourceKind == NetworkResource.REST)
+			return brokers.get(brokerId).getNetworkRESTAddress();
+		if (resourceKind == NetworkResource.SOAP)
+			return brokers.get(brokerId).getNetworkSOAPAddress();
+		//if (resourceKind == NetworkResource.RMI)
+		return brokers.get(brokerId).getNetworkRMIAddress();
 	}
 
 	
@@ -1037,9 +1046,9 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
     	//initial values
     	boerse.emittents.put("AAPL", new Emittent("AAPL", "Apple Inc."));
     	boerse.emittents.put("RDSA", new Emittent("RDSA", "Royal Dutch Shell"));
-    	boerse.brokers.put(1, new Broker(1, 0f, "Daniil Brokers Co.", "localhost:5001", "123", "Licenze: AA-001"));
-    	boerse.brokers.put(2, new Broker(2, 0f, "Zvonek Brokers Co.", "localhost:5002", "456", "Licenze: AA-002"));
-    	boerse.brokers.put(3, new Broker(3, 0f, "Ayrat Brokers Co.", "localhost:5003", "012", "Licenze: AA-003"));
+    	boerse.brokers.put(1, new Broker(1, 0f, "Daniil Brokers Co.", "localhost:5001", "http://localhost:20001/WebServices/public", "http://localhost:30001/rest/", "123", "Licenze: AA-001"));
+    	boerse.brokers.put(2, new Broker(2, 0f, "Zvonek Brokers Co.", "localhost:5002", "http://localhost:20002/WebServices/public", "http://localhost:30002/rest/", "456", "Licenze: AA-002"));
+    	boerse.brokers.put(3, new Broker(3, 0f, "Ayrat Brokers Co.", "localhost:5003", "http://localhost:20003/WebServices/public", "http://localhost:30003/rest/", "012", "Licenze: AA-003"));
 
     	
         if (System.getSecurityManager() == null) {

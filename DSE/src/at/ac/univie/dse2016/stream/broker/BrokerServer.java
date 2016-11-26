@@ -21,19 +21,21 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import at.ac.univie.dse2016.stream.boerse.*;
-import at.ac.univie.dse2016.stream.brokeradminapp.BrokerPublicRESTful;
 import at.ac.univie.dse2016.stream.common.*;
 
 import javax.xml.ws.Endpoint;
 
 public class BrokerServer implements BrokerAdmin, BrokerClient {
 	
-	public BrokerServer(int brokerId, String remoteHostBoerse, int remotePortUDPBoerse, int remotePortRMIBoerse, int localPortRMIBroker) {
+	public BrokerServer(int brokerId, String remoteHostBoerse, int remotePortUDPBoerse, int remotePortRMIBoerse, int localPortRMIBroker
+			, String localSOAPHostBroker, String localRESTHostBroker) {
 		this.brokerId = brokerId;
 		this.remoteHostBoerse = remoteHostBoerse;
 		this.remotePortUDPBoerse = remotePortUDPBoerse;
 		this.remotePortRMIBoerse = remotePortRMIBoerse;
 		this.localPortRMIBroker = localPortRMIBroker;
+		this.localSOAPHostBroker = localSOAPHostBroker;
+		this.localRESTHostBroker = localRESTHostBroker;
 		emittents = new java.util.TreeMap<String, Emittent>();
 		clients = new java.util.TreeMap<Integer, Client>();
 		auftraege = new java.util.TreeMap< Integer /* auftragId */, Auftrag >();
@@ -54,13 +56,21 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
             //get port from Boerse Settings
     		if (localPortRMIBroker == -1)
     		{
-                String host = boerse.getBrokerNetworkAddress(brokerId);
+                String host = boerse.getBrokerNetworkAddress(brokerId, NetworkResource.RMI);
                 String[] ar = host.split(":");
                 this.localPortRMIBroker = Integer.valueOf(ar[1]);
     		}
 
+            //get SOAPHostBroker from Boerse Settings
+    		if (localSOAPHostBroker == null)
+    			this.localSOAPHostBroker = boerse.getBrokerNetworkAddress(brokerId, NetworkResource.SOAP);
+
+            //get RESTHostBroker from Boerse Settings
+    		if (localRESTHostBroker == null)
+    			this.localRESTHostBroker = boerse.getBrokerNetworkAddress(brokerId, NetworkResource.REST);
+
     		
-            //publish Broker objects
+            //publish Broker objects RMI
             Registry registry = LocateRegistry.createRegistry(this.localPortRMIBroker);
             BrokerAdminAdapter adminAdapter = new BrokerAdminAdapter(this);
             BrokerAdmin adminStub =
@@ -71,6 +81,23 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
                     (BrokerClient) UnicastRemoteObject.exportObject(this, 0);
             registry.rebind("client", clientStub);
         
+            
+            //publish SOAP
+            Endpoint endpoint = Endpoint.publish(this.localSOAPHostBroker, new BrokerAdminAdapter(this));
+
+            boolean status = endpoint.isPublished();
+            System.out.println("Web service status = " + status);
+            
+            //publish REST
+            org.apache.cxf.jaxrs.JAXRSServerFactoryBean sf = new org.apache.cxf.jaxrs.JAXRSServerFactoryBean();
+            sf.setResourceClasses(BoersePublicRESTful.class);
+            sf.setResourceProvider(BoersePublicRESTful.class, 
+                new org.apache.cxf.jaxrs.lifecycle.SingletonResourceProvider( new BrokerPublicRESTful(this) ) );
+            sf.setAddress(this.localRESTHostBroker);
+            org.apache.cxf.endpoint.Server server = sf.create();
+            
+            
+            
         } catch (Exception e) {
             System.err.println("BrokerServer exception:");
             e.printStackTrace();
@@ -85,6 +112,8 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	/**
 	 * Connection Data
 	 */
+	private String localSOAPHostBroker;
+	private String localRESTHostBroker;
 	private String remoteHostBoerse;
 	private Integer remotePortUDPBoerse;
 	private Integer remotePortRMIBoerse;
@@ -617,8 +646,17 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
         int localPortRMIBroker = -1;
 		if (args.length > 4)
 			localPortRMIBroker = Integer.valueOf(args[4]);
+
+		String localSOAPHostBroker = null;
+		if (args.length > 5)
+			localSOAPHostBroker = args[5];
+	
+		String localRESTHostBroker = null;
+		if (args.length > 6)
+			localRESTHostBroker = args[6];
 		
-		BrokerServer brokerServer = new BrokerServer(brokerId, remoteHostBoerse, remotePortUDPBoerse, remotePortRMIBoerse, localPortRMIBroker);
+		
+		BrokerServer brokerServer = new BrokerServer(brokerId, remoteHostBoerse, remotePortUDPBoerse, remotePortRMIBoerse, localPortRMIBroker, localSOAPHostBroker, localRESTHostBroker);
 		localPortRMIBroker = brokerServer.localPortRMIBroker;
 		
 		//initial Data

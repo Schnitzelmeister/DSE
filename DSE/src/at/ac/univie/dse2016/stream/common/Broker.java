@@ -13,8 +13,12 @@ public class Broker extends Client {
 	protected String license;
 	public String getLicense() { return license; }
 
-	protected String networkAddress;
-	public String getNetworkAddress() { return networkAddress; }
+	protected String networkRMIAddress;
+	protected String networkSOAPAddress;
+	protected String networkRESTAddress;
+	public String getNetworkRMIAddress() { return networkRMIAddress; }
+	public String getNetworkSOAPAddress() { return networkSOAPAddress; }
+	public String getNetworkRESTAddress() { return networkRESTAddress; }
 	
 	/**
 	 * Aktuelle Krediten der Kunden
@@ -26,14 +30,16 @@ public class Broker extends Client {
 	 */
 	//protected transient java.util.TreeMap<Integer, Client> clients;
 	
-	public Broker(Integer id, float kontostand, String name, String networkAddress, String phone, String license) {
+	public Broker(Integer id, float kontostand, String name, String networkRMIAddress, String networkSOAPAddress, String networkRESTAddress, String phone, String license) {
 		super(id, -1, kontostand, name);
-		this.networkAddress = networkAddress;
+		this.networkRMIAddress = networkRMIAddress;
+		this.networkSOAPAddress = networkSOAPAddress;
+		this.networkRESTAddress = networkRESTAddress;
 		this.phone = phone;
 		this.license = license;
 	}
 	
 	public String toString() { 
-	    return this.name + " - " + this.networkAddress;
+	    return this.name + " - " + this.networkRMIAddress;
 	} 
 }

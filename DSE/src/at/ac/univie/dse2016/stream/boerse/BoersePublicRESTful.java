@@ -1,9 +1,11 @@
 package at.ac.univie.dse2016.stream.boerse;
 
 import at.ac.univie.dse2016.stream.common.Emittent;
+import at.ac.univie.dse2016.stream.common.NetworkResource;
 
 import java.rmi.RemoteException;
 
+import javax.jws.WebParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -75,14 +77,14 @@ public class BoersePublicRESTful {
 	@GET
 	@Path("/broker_network_address/{broker_id}")
 	@Produces(MediaType.TEXT_HTML)
-	public String getBrokerNetworkAddressHTML(@PathParam("broker_id") Integer brokerId) throws RemoteException {
-		return "<html><title>broker_network_address</title><body><h1>broker_network_address = " + server.getBrokerNetworkAddress(brokerId) + "</h1></body></html>";
+	public String getBrokerNetworkAddressHTML(@PathParam("broker_id") Integer brokerId, @WebParam(name = "resourceKind") NetworkResource resourceKind) throws RemoteException {
+		return "<html><title>broker_network_address</title><body><h1>broker_network_address = " + server.getBrokerNetworkAddress(brokerId, resourceKind) + "</h1></body></html>";
 	}
 
 	@GET
 	@Path("/broker_network_address/{broker_id}")
 	@Produces(MediaType.TEXT_PLAIN)
-	public String getBrokerNetworkAddress(@PathParam("broker_id") Integer brokerId) throws RemoteException {
-		return server.getBrokerNetworkAddress(brokerId);
+	public String getBrokerNetworkAddress(@PathParam("broker_id") Integer brokerId, @WebParam(name = "resourceKind") NetworkResource resourceKind) throws RemoteException {
+		return server.getBrokerNetworkAddress(brokerId, resourceKind);
 	}
 }

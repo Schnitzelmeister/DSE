@@ -1,8 +1,12 @@
 package at.ac.univie.dse2016.stream.broker;
 
 import java.rmi.RemoteException;
+
+import javax.jws.WebService;
+
 import at.ac.univie.dse2016.stream.common.*;
 
+@WebService(targetNamespace = "http://boerse.stream.dse2016.univie.ac.at/", endpointInterface = "at.ac.univie.dse2016.stream.common.BrokerAdmin", portName = "BrokerAdminAdapterPort", serviceName = "BrokerAdminAdapterService")
 public class BrokerAdminAdapter implements BrokerAdmin {
 	
 	private BrokerServer server;

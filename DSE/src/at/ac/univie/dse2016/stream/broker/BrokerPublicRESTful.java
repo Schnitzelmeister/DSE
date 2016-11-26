@@ -1,9 +1,7 @@
-package at.ac.univie.dse2016.stream.brokeradminapp;
+package at.ac.univie.dse2016.stream.broker;
 
-import at.ac.univie.dse2016.stream.boerse.BoerseServer;
-import at.ac.univie.dse2016.stream.broker.BrokerServer;
-import at.ac.univie.dse2016.stream.common.Client;
-import at.ac.univie.dse2016.stream.common.Emittent;
+import at.ac.univie.dse2016.stream.common.*;
+
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;

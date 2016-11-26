@@ -91,8 +91,8 @@ public class BoerseAdminAdapter implements BoerseAdmin {
 	 * Normaleweise sollten Clients die Adresse ihrer Brokers kennen
 	 * einfachheitshalber bekommt ein Client diese Adresse mithilfe dieser Methode, z.B. localhost:12001
 	 */
-	public String getBrokerNetworkAddress(Integer brokerId) throws RemoteException, IllegalArgumentException  {
-		return server.getBrokerNetworkAddress(brokerId);
+	public String getBrokerNetworkAddress(Integer brokerId, NetworkResource resourceKind) throws RemoteException, IllegalArgumentException  {
+		return server.getBrokerNetworkAddress(brokerId, resourceKind);
 	}
 
 	

@@ -53,7 +53,7 @@ public class ClientApp {
 
             if (args.length < 6)
             {
-	            remoteHostBroker = boerse.getBrokerNetworkAddress(brokerId);
+	            remoteHostBroker = boerse.getBrokerNetworkAddress(brokerId, NetworkResource.RMI);
 	            String[] ar = remoteHostBroker.split(":");
 	            remotePortRMIBroker = Integer.valueOf(ar[1]);
 	            remoteHostBroker = ar[0];
@@ -84,7 +84,9 @@ public class ClientApp {
             System.out.println(portName);
             at.ac.univie.dse2016.stream.common.BoersePublic clientSOAP = service.getPort(portName, at.ac.univie.dse2016.stream.common.BoersePublic.class);
             
-            System.out.println( "client.getBrokerNetworkAddress(1)=" + clientSOAP.getBrokerNetworkAddress(1) );
+            System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.RMI)=" + clientSOAP.getBrokerNetworkAddress(1, NetworkResource.RMI) );
+            System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.SOAP)=" + clientSOAP.getBrokerNetworkAddress(1, NetworkResource.SOAP) );
+            System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.REST)=" + clientSOAP.getBrokerNetworkAddress(1, NetworkResource.REST) );
             for (Emittent e : clientSOAP.getEmittentsList())
             	System.out.println(e.getTicker() + " - " + e.getName() );
             

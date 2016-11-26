@@ -6,6 +6,7 @@ import java.rmi.registry.Registry;
 import at.ac.univie.dse2016.stream.common.BoersePublic;
 import at.ac.univie.dse2016.stream.common.BrokerAdmin;
 import at.ac.univie.dse2016.stream.common.Client;
+import at.ac.univie.dse2016.stream.common.NetworkResource;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -38,7 +39,7 @@ public class Main extends Application {
             Registry registryBoerse = LocateRegistry.getRegistry(10001);
             BoersePublic boerse = (BoersePublic) registryBoerse.lookup("public");
 
-            String host = boerse.getBrokerNetworkAddress(brokerId);
+            String host = boerse.getBrokerNetworkAddress(brokerId, NetworkResource.REST);
             String[] ar = host.split(":");
             int port = Integer.valueOf(ar[1]);
             host = ar[0];
