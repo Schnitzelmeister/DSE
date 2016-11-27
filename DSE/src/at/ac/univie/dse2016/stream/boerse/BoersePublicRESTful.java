@@ -31,6 +31,8 @@ public class BoersePublicRESTful {
 	public String getStatusHTML() throws RemoteException {
 		return "<html><title>BoerseStatus</title><body><h1>BoerseStatus = " + server.getStatus() + "</h1></body></html>";
 	}
+	
+	
 
 	@GET
 	@Path("/status")

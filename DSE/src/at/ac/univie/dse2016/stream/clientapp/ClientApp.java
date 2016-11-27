@@ -5,7 +5,6 @@ import java.rmi.registry.Registry;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
 import javax.xml.ws.soap.SOAPBinding;
-
 import at.ac.univie.dse2016.stream.common.*;
 
 public class ClientApp {

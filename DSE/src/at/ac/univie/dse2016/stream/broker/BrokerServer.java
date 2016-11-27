@@ -20,7 +20,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import at.ac.univie.dse2016.stream.boerse.*;
 import at.ac.univie.dse2016.stream.common.*;
 
 import javax.xml.ws.Endpoint;
@@ -96,6 +95,8 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			sf.setAddress(this.localRESTHostBroker);
 			org.apache.cxf.endpoint.Server server = sf.create();
             
+			
+			
             // destroy the server
             // uncomment when you want to close/destroy it
             // server.destroy();

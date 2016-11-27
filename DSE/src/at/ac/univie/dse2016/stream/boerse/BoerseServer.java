@@ -13,7 +13,6 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 
-import at.ac.univie.dse2016.stream.broker.BrokerPublicRESTful;
 import at.ac.univie.dse2016.stream.common.*;
 
 public final class BoerseServer implements BoerseAdmin, BoerseClient {
