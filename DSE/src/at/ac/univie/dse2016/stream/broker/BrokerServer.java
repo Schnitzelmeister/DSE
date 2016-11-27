@@ -81,8 +81,8 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
                     (BrokerClient) UnicastRemoteObject.exportObject(this, 0);
             registry.rebind("client", clientStub);
         
-            
             //publish SOAP
+            System.out.println("Try to publish SOAP " +  this.localSOAPHostBroker);
             Endpoint endpoint = Endpoint.publish(this.localSOAPHostBroker, new BrokerAdminAdapter(this));
 
             boolean status = endpoint.isPublished();
@@ -96,7 +96,11 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			sf.setAddress(this.localRESTHostBroker);
 			org.apache.cxf.endpoint.Server server = sf.create();
             
-            
+            // destroy the server
+            // uncomment when you want to close/destroy it
+            // server.destroy();
+			
+	        System.out.println("Der Broker id=" + brokerId + " ist gestartet, RMI port = "+ this.localPortRMIBroker);
             
         } catch (Exception e) {
             System.err.println("BrokerServer exception:");
@@ -656,11 +660,10 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			localRESTHostBroker = args[6];
 		
 		
-		BrokerServer brokerServer = new BrokerServer(brokerId, remoteHostBoerse, remotePortUDPBoerse, remotePortRMIBoerse, localPortRMIBroker, localSOAPHostBroker, localRESTHostBroker);
-		localPortRMIBroker = brokerServer.localPortRMIBroker;
-		
-		//initial Data
 		try {
+			BrokerServer brokerServer = new BrokerServer(brokerId, remoteHostBoerse, remotePortUDPBoerse, remotePortRMIBoerse, localPortRMIBroker, localSOAPHostBroker, localRESTHostBroker);
+		
+			//initial Data
 			switch (brokerId) {
 			case 1: 
 				brokerServer.clientAddNew( new Client(brokerId, "Daniil 1") );
@@ -679,12 +682,5 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 		catch(Exception e) {
 			e.printStackTrace();
 		}
-		
-        System.out.println("Der Broker id=" + brokerId + " ist gestartet, RMI port = "+ localPortRMIBroker);
-
 	}
-
-
-
-
 }

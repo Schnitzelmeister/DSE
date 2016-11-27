@@ -77,19 +77,29 @@ public class BoersePublicRESTful {
 	 * Normaleweise sollten Clients die Adresse ihrer Brokers kennen
 	 * einfachheitshalber bekommt ein Client diese Adresse mithilfe dieser Methode, z.B. localhost:12001
 	 */
+	private NetworkResource getNetworkResourceFromId(Integer id) {
+		if (NetworkResource.UDP.getNumVal() == id.intValue())
+			return NetworkResource.UDP;
+		if (NetworkResource.SOAP.getNumVal() == id.intValue())
+			return NetworkResource.SOAP;
+		if (NetworkResource.REST.getNumVal() == id.intValue())
+			return NetworkResource.REST;
+
+		return NetworkResource.RMI;
+	}
 	
 	@GET
 	@Path("/broker_network_address/{broker_id}/{resourceKind}")
 	@Produces(MediaType.TEXT_HTML)
-	public String getBrokerNetworkAddressHTML(@PathParam("broker_id") Integer brokerId, @WebParam(name = "resourceKind") NetworkResource resourceKind) throws RemoteException {
-		return "<html><title>broker_network_address</title><body><h1>broker_network_address (" + resourceKind.toString() + ") = " + server.getBrokerNetworkAddress(brokerId, resourceKind) + "</h1></body></html>";
+	public String getBrokerNetworkAddressHTML(@PathParam("broker_id") Integer brokerId, @PathParam("resourceKind") Integer resourceKind) throws RemoteException {
+		return "<html><title>broker_network_address</title><body><h1>broker_network_address (" + getNetworkResourceFromId(resourceKind).toString() + ") = " + server.getBrokerNetworkAddress(brokerId, getNetworkResourceFromId(resourceKind)) + "</h1></body></html>";
 	}
 
 	@GET
 	@Path("/broker_network_address/{broker_id}/{resourceKind}")
 	@Produces(MediaType.TEXT_PLAIN)
-	public String getBrokerNetworkAddress(@PathParam("broker_id") Integer brokerId, @WebParam(name = "resourceKind") NetworkResource resourceKind) throws RemoteException {
-		return server.getBrokerNetworkAddress(brokerId, resourceKind);
+	public String getBrokerNetworkAddress(@PathParam("broker_id") Integer brokerId, @PathParam("resourceKind") Integer resourceKind) throws RemoteException {
+		return server.getBrokerNetworkAddress(brokerId,  getNetworkResourceFromId(resourceKind));
 	}
 	
 	
