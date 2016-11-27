@@ -82,17 +82,17 @@ public class ClientApp {
             //at.ac.univie.dse2016.stream.common.BoersePublic client = service.getPort(portName,  at.ac.univie.dse2016.stream.common.BoersePublic.class);
             
             System.out.println(portName);
-            at.ac.univie.dse2016.stream.common.BoersePublic clientSOAP = service.getPort(portName, at.ac.univie.dse2016.stream.common.BoersePublic.class);
+            at.ac.univie.dse2016.stream.common.BoersePublic clientSOAPBoerse = service.getPort(portName, at.ac.univie.dse2016.stream.common.BoersePublic.class);
             
-            System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.RMI)=" + clientSOAP.getBrokerNetworkAddress(1, NetworkResource.RMI) );
-            System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.SOAP)=" + clientSOAP.getBrokerNetworkAddress(1, NetworkResource.SOAP) );
-            System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.REST)=" + clientSOAP.getBrokerNetworkAddress(1, NetworkResource.REST) );
-            for (Emittent e : clientSOAP.getEmittentsList())
+  //          System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.RMI)=" + clientSOAPBoerse.getBrokerNetworkAddress(1, NetworkResource.RMI) );
+   //         System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.SOAP)=" + clientSOAPBoerse.getBrokerNetworkAddress(1, NetworkResource.SOAP) );
+   //         System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.REST)=" + clientSOAPBoerse.getBrokerNetworkAddress(1, NetworkResource.REST) );
+            for (Emittent e : clientSOAPBoerse.getEmittentsList())
             	System.out.println(e.getTicker() + " - " + e.getName() );
             
             //REST
             org.apache.cxf.jaxrs.client.WebClient clientREST = org.apache.cxf.jaxrs.client.WebClient.create("http://localhost:9999/rest/public");
-            clientREST.path("broker_network_address").path(3).accept("text/html");
+            clientREST.path("broker_network_address").path(3).path(NetworkResource.SOAP.getNumVal()).accept("text/plain");
             System.out.println("result = " + clientREST.get(String.class) );
 
         

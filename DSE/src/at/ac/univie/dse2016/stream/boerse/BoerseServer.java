@@ -782,9 +782,11 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	 * einfachheitshalber bekommt ein Client diese Adresse mithilfe dieser Methode, z.B. localhost:12001
 	 */
 	public String getBrokerNetworkAddress(Integer brokerId, NetworkResource resourceKind) throws RemoteException, IllegalArgumentException {
+//		getEmittentsList().get(0).setName( resourceKind.toString() + "==" + NetworkResource.UDP.toString() );
+
 		if ( resourceKind == NetworkResource.UDP )
 			throw new IllegalArgumentException("Broker has no UDP");
-
+		
 		if ( !brokers.containsKey(brokerId) )
 			throw new IllegalArgumentException("Broker with id=" + brokerId + " does not exist");
 
@@ -792,7 +794,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 			return brokers.get(brokerId).getNetworkRESTAddress();
 		if (resourceKind == NetworkResource.SOAP)
 			return brokers.get(brokerId).getNetworkSOAPAddress();
-		//if (resourceKind == NetworkResource.RMI)
+		//if (resourceKind.getNumVal() == NetworkResource.RMI.getNumVal())
 		return brokers.get(brokerId).getNetworkRMIAddress();
 	}
 
@@ -1042,7 +1044,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
     		portRMI = Integer.valueOf(args[1]);
     	
     	BoerseServer boerse = new BoerseServer(portUDP);
-    	
+    	   	
     	//initial values
     	try {
 	    	boerse.emittentAddNew( new Emittent("AAPL", "Apple Inc.") );
