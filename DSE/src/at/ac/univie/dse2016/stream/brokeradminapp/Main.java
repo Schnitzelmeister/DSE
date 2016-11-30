@@ -70,8 +70,8 @@ public class Main extends Application {
             Registry registryBroker = LocateRegistry.getRegistry(remoteHostBroker, remotePortRMIBroker);
             Main.brokerAdmin = (BrokerAdmin) registryBroker.lookup("adminBroker");
 
-            Main.brokerAdmin.clientAddNew( new Client(brokerId, "Mr.Muster") );
-            Main.brokerAdmin.clientAddNew( new Client(brokerId, "Mr.Muster 2") );
+          //  Main.brokerAdmin.clientAddNew( new Client(brokerId, "Mr.Muster") );
+          //  Main.brokerAdmin.clientAddNew( new Client(brokerId, "Mr.Muster 2") );
 /*
             //SOAP
             QName serviceName = new QName("http://boerse.com/", "BoersePublic");
