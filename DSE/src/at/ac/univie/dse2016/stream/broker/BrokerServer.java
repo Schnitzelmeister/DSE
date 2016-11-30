@@ -16,6 +16,7 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.Date;
+import java.util.TreeMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -157,12 +158,29 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	 */
 	public Integer clientAddNew(Client client) throws RemoteException, IllegalArgumentException {
 		synchronized(clients) {
-			client = new Client(clients.size() + 1, brokerId, 0f, client.getName());
+			client = new Client(clientLastiD(clients)  + 1, brokerId, 0f, client.getName());
 			clients.put(client.getId(), client);
 		}
 		return client.getId();
 
 	}
+
+	/**
+	 * Function fuer richtige arbeit von funktion AddNewClient
+	 * @param clients
+	 * @return
+	 */
+	public Integer clientLastiD(TreeMap<Integer, Client> clients){
+		Integer id = 0;
+		synchronized (clients){
+			for (Client c: clients.values()){
+				id = c.getId();
+			}
+
+		}
+		return id;
+	}
+
 
 	/**
 	 * Edit Client, Admin's Function
