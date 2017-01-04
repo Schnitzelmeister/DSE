@@ -25,34 +25,74 @@ import javax.swing.JRadioButton;
 
 public class ClientGUI {
 
-	public static BoerseAdmin boerseAdmin;
 	public static ClientGUI window;
+
+	private BoersePublic boersePublic;
+	private BrokerClient brokerClient;
+	private BoerseStatus status;
+	private int brokerId;
+	private int clientId;
 	
 	private JFrame frmClientInterface;
 	
-	public javax.swing.DefaultListModel<Emittent> listModelEmittents;
-	public javax.swing.DefaultListModel<Broker> listModelBrokers;
+	private java.util.TreeMap<String, Emittent> emittents;
+	
+	public Integer emittentIdByTicker(String ticker) {
+		return emittents.get(ticker).getId();
+	}
+	
+	//public javax.swing.DefaultListModel<Emittent> listModelEmittents;
+	//public javax.swing.DefaultListModel<Broker> listModelBrokers;
 	private JTextField txtBoerseServer;
 	private JButton btnConnect;
 	private JTabbedPane tabbedPane;
-	private BoerseStatus status;
-	private JTextField textField;
-	private JTextField textField_1;
-	private JTextField textField_2;
-	private JTextField textField_3;
-	private JTextField textField_4;
-	private JTextField txtHttplocalhostwebservicespublic;
-	private JTextField txtHttplocalhostrest;
-	private JTextField txtHttplocalhostwebservicespublic_1;
-	private JTextField txtHttplocalhostrest_1;
-	private JTextField textField_5;
-	private JTextField textField_6;
-	private JTextField textField_7;
+	
+	private JTextField txtBoerseRMIPort;
+	private JTextField txtBoerseUDPPort;
+	private JTextField txtBrokerRMIServer;
+	private JTextField txtBrokerRMIPort;
+	private JTextField txtBoerseSOAPServer;
+	private JTextField txtBoerseRESTServer;
+	private JTextField txtBrokerSOAPServer;
+	private JTextField txtBrokerRESTServer;
+	private JTextField txtKontoStand;
+	private JTextField txtAnzahl;
+	private JTextField txtBedingung;
+	
+	private JComboBox<Emittent> cmbEmittentSection;
+	private JComboBox<Emittent> cmbEmittent;
+	private JList<Emittent> listAccountEmittents;
+	private javax.swing.ListModel<Auftrag> auftraege;
+	private javax.swing.ListModel<String> kontoEmittents;
 
 	/**
 	 * Launch the application.
 	 */
 	public static void main(String[] args) {
+		if (args.length < 2)
+			throw new IllegalArgumentException("arguments: brokerId clientId {remoteHostBoerse remotePortUDPBoerse remotePortRMIBoerse remoteHostBroker remotePortRMIBroker}");
+
+		int brokerId = Integer.valueOf(args[0]);
+		int clientId = Integer.valueOf(args[1]);
+		
+		String remoteHostBoerse = "localhost";
+		int remotePortUDPBoerse = 10000;
+		int remotePortRMIBoerse = 10001;
+		if (args.length > 2)
+			remoteHostBoerse = args[2];
+		if (args.length > 3)
+			remotePortUDPBoerse = Integer.valueOf(args[3]);
+		if (args.length > 4)
+			remotePortRMIBoerse = Integer.valueOf(args[4]);
+		
+		String remoteHostBroker = "localhost";
+		int remotePortRMIBroker = 10002;	
+		if (args.length > 5)
+			remoteHostBroker = args[5];
+		if (args.length > 6)
+			remotePortRMIBroker = Integer.valueOf(args[6]);
+		
+		
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
@@ -61,6 +101,16 @@ public class ClientGUI {
 			        }
 					
 					ClientGUI.window = new ClientGUI();
+					window.brokerId = brokerId;
+					window.clientId = clientId;
+					//window.txtBoerseServer.setText(remoteHostBoerse);
+					//window.txtBoerseRMIPort.setText(String.valueOf(remotePortRMIBoerse));
+					//window.txtBoerseUDPPort.setText(String.valueOf(remotePortUDPBoerse));
+
+					//window.txtBrokerRMIServer.setText(remoteHostBoerse);
+					//window.txtBrokerRMIPort.setText(String.valueOf(remotePortRMIBoerse));
+
+
 					ClientGUI.window.frmClientInterface.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -97,7 +147,7 @@ public class ClientGUI {
 	 */
 	private void initialize() {
 		
-		status = BoerseStatus.Closed;
+		//status = BoerseStatus.Closed;
 		
 		frmClientInterface = new JFrame();
 		frmClientInterface.setResizable(false);
@@ -115,7 +165,7 @@ public class ClientGUI {
 		tabbedPane.setBounds(12, 26, 584, 452);
 		frmClientInterface.getContentPane().add(tabbedPane);
 		
-		listModelEmittents = new javax.swing.DefaultListModel<Emittent>();
+		//listModelEmittents = new javax.swing.DefaultListModel<Emittent>();
 		
 		JPanel panelConnection = new JPanel();
 		tabbedPane.addTab("Connection", null, panelConnection, null);
@@ -128,7 +178,7 @@ public class ClientGUI {
 		txtBoerseServer = new JTextField();
 		txtBoerseServer.setHorizontalAlignment(SwingConstants.LEFT);
 		txtBoerseServer.setText("localhost");
-		txtBoerseServer.setBounds(198, 32, 177, 19);
+		txtBoerseServer.setBounds(198, 47, 177, 19);
 		panelConnection.add(txtBoerseServer);
 		txtBoerseServer.setColumns(10);
 		
@@ -136,37 +186,60 @@ public class ClientGUI {
 		btnConnect.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				try {
-					Registry registryBoerse = LocateRegistry.getRegistry(10001);
-					boerseAdmin = (BoerseAdmin) registryBoerse.lookup("adminBoerse");
+					java.util.ArrayList<Emittent> ret_emittents;
+					//emittents = new java.util.TreeMap<Integer, Emittent>();
 					
-					listModelEmittents.clear();
-		            for (Emittent e : ClientGUI.boerseAdmin.getEmittentsList())
-		            	listModelEmittents.addElement(e);
+					Registry registryBoerse = LocateRegistry.getRegistry(window.txtBoerseServer.getText(), Integer.valueOf(window.txtBoerseRMIPort.getText()));
+					boersePublic = (BoersePublic) registryBoerse.lookup("public");
+					
+					cmbEmittent.removeAll();
+					cmbEmittentSection.removeAll();
+					//cmbEmittentSection.addItem( new Object() { public String toString() { return "<not selected>"; } } );
+					ret_emittents = boersePublic.getEmittentsList();
+					for (Emittent e : ret_emittents ) {
+						//emittents.put(e.getId(), e);
+						//cmbEmittent.addItem( new Object() { public String toString() { return e.getTicker(); } } );
+						//cmbEmittentSection.addItem( new Object() { public String toString() { return e.getTicker() + " - " + e.getName(); } } );
+		            }
 		            
-		            listModelBrokers.clear();
-		            for (Broker b : ClientGUI.boerseAdmin.getBrokersList())
-		            	listModelBrokers.addElement(b);
-
-		            status = boerseAdmin.getStatus();
+		            status = boersePublic.getStatus();
 	            
+					Registry registryBroker = LocateRegistry.getRegistry(window.txtBrokerRESTServer.getText(), Integer.valueOf(window.txtBrokerRMIPort.getText()));
+					brokerClient = (BrokerClient) registryBroker.lookup("client");
+					
+					Client clientState = brokerClient.getState(clientId);
+		            
+					txtKontoStand.setText( Float.toString(clientState.getKontostand()) );
+		            
+					//javax.swing.DefaultListModel listAccountEmittentsModel = new javax.swing.DefaultListModel();
+					
+
+					//listAccountEmittents.removeAll();
+		            for (java.util.Map.Entry<Integer, Integer> e : clientState.getAccountEmittents().entrySet()) {
+		            	//kontoEmittents
+		            	//listAccountEmittentsModel.addElement(  emittents.get(e.getKey()).getTicker() + " = " + e.getValue() + " Stueck" );
+		            }
+
+					
+		            
 		            setConnected(true);
 
 				} catch (Exception e) {
-					boerseAdmin = null;
+					boersePublic = null;
 					setConnected(false);
 					e.printStackTrace();
 				}
 
 			}
 		});
-		btnConnect.setBounds(26, 362, 117, 25);
+		btnConnect.setBounds(24, 339, 117, 25);
 		panelConnection.add(btnConnect);
 		
-		textField = new JTextField();
-		textField.setText("10001");
-		textField.setBounds(452, 32, 60, 20);
-		panelConnection.add(textField);
-		textField.setColumns(10);
+		txtBoerseRMIPort = new JTextField();
+		txtBoerseRMIPort.setText("10001");
+		txtBoerseRMIPort.setBounds(452, 32, 60, 20);
+		panelConnection.add(txtBoerseRMIPort);
+		txtBoerseRMIPort.setColumns(10);
 		
 		JLabel lblNewLabel = new JLabel("Port:");
 		lblNewLabel.setBounds(414, 35, 24, 14);
@@ -176,97 +249,89 @@ public class ClientGUI {
 		lblRmiBrokerConnection.setBounds(26, 66, 157, 15);
 		panelConnection.add(lblRmiBrokerConnection);
 		
-		textField_1 = new JTextField();
-		textField_1.setText("localhost");
-		textField_1.setHorizontalAlignment(SwingConstants.LEFT);
-		textField_1.setEditable(true);
-		textField_1.setColumns(10);
-		textField_1.setBounds(198, 63, 177, 19);
-		panelConnection.add(textField_1);
-		
 		JLabel label_1 = new JLabel("Port:");
 		label_1.setBounds(414, 66, 24, 14);
 		panelConnection.add(label_1);
 		
-		textField_2 = new JTextField();
-		textField_2.setText("10000");
-		textField_2.setColumns(10);
-		textField_2.setBounds(452, 63, 60, 20);
-		panelConnection.add(textField_2);
+		txtBoerseUDPPort = new JTextField();
+		txtBoerseUDPPort.setText("10000");
+		txtBoerseUDPPort.setColumns(10);
+		txtBoerseUDPPort.setBounds(452, 63, 60, 20);
+		panelConnection.add(txtBoerseUDPPort);
 		
 		JLabel label = new JLabel("RMI Broker Connection Server:");
-		label.setBounds(26, 220, 157, 15);
+		label.setBounds(26, 227, 157, 15);
 		panelConnection.add(label);
 		
-		textField_3 = new JTextField();
-		textField_3.setText("localhost");
-		textField_3.setHorizontalAlignment(SwingConstants.LEFT);
-		textField_3.setEditable(true);
-		textField_3.setColumns(10);
-		textField_3.setBounds(198, 217, 177, 19);
-		panelConnection.add(textField_3);
+		txtBrokerRMIServer = new JTextField();
+		txtBrokerRMIServer.setText("localhost");
+		txtBrokerRMIServer.setHorizontalAlignment(SwingConstants.LEFT);
+		txtBrokerRMIServer.setEditable(true);
+		txtBrokerRMIServer.setColumns(10);
+		txtBrokerRMIServer.setBounds(198, 224, 177, 19);
+		panelConnection.add(txtBrokerRMIServer);
 		
 		JLabel label_2 = new JLabel("Port:");
-		label_2.setBounds(414, 220, 24, 14);
+		label_2.setBounds(414, 227, 24, 14);
 		panelConnection.add(label_2);
 		
-		textField_4 = new JTextField();
-		textField_4.setText("5001");
-		textField_4.setColumns(10);
-		textField_4.setBounds(452, 217, 60, 20);
-		panelConnection.add(textField_4);
+		txtBrokerRMIPort = new JTextField();
+		txtBrokerRMIPort.setText("5001");
+		txtBrokerRMIPort.setColumns(10);
+		txtBrokerRMIPort.setBounds(452, 224, 60, 20);
+		panelConnection.add(txtBrokerRMIPort);
 		
-		JLabel lblSoapBoerseConnection = new JLabel("SOAP Boerse Connection Server (URI with Port):");
+		JLabel lblSoapBoerseConnection = new JLabel("SOAP Boerse Connection Server (URL with Port):");
 		lblSoapBoerseConnection.setBounds(26, 112, 242, 15);
 		panelConnection.add(lblSoapBoerseConnection);
 		
-		txtHttplocalhostwebservicespublic = new JTextField();
-		txtHttplocalhostwebservicespublic.setText("http://localhost:8080/WebServices/public");
-		txtHttplocalhostwebservicespublic.setHorizontalAlignment(SwingConstants.LEFT);
-		txtHttplocalhostwebservicespublic.setEditable(true);
-		txtHttplocalhostwebservicespublic.setColumns(10);
-		txtHttplocalhostwebservicespublic.setBounds(278, 109, 234, 19);
-		panelConnection.add(txtHttplocalhostwebservicespublic);
+		txtBoerseSOAPServer = new JTextField();
+		txtBoerseSOAPServer.setText("http://localhost:8080/WebServices/public");
+		txtBoerseSOAPServer.setHorizontalAlignment(SwingConstants.LEFT);
+		txtBoerseSOAPServer.setEditable(true);
+		txtBoerseSOAPServer.setColumns(10);
+		txtBoerseSOAPServer.setBounds(278, 109, 234, 19);
+		panelConnection.add(txtBoerseSOAPServer);
 		
-		txtHttplocalhostrest = new JTextField();
-		txtHttplocalhostrest.setText("http://localhost:9999/rest/");
-		txtHttplocalhostrest.setHorizontalAlignment(SwingConstants.LEFT);
-		txtHttplocalhostrest.setEditable(true);
-		txtHttplocalhostrest.setColumns(10);
-		txtHttplocalhostrest.setBounds(278, 147, 234, 19);
-		panelConnection.add(txtHttplocalhostrest);
+		txtBoerseRESTServer = new JTextField();
+		txtBoerseRESTServer.setText("http://localhost:9999/rest/");
+		txtBoerseRESTServer.setHorizontalAlignment(SwingConstants.LEFT);
+		txtBoerseRESTServer.setEditable(true);
+		txtBoerseRESTServer.setColumns(10);
+		txtBoerseRESTServer.setBounds(278, 147, 234, 19);
+		panelConnection.add(txtBoerseRESTServer);
 		
-		JLabel lblRestBoerseConnection = new JLabel("REST Boerse Connection Server (URI with Port):");
+		JLabel lblRestBoerseConnection = new JLabel("REST Boerse Connection Server (URL with Port):");
 		lblRestBoerseConnection.setBounds(26, 150, 242, 15);
 		panelConnection.add(lblRestBoerseConnection);
 		
-		JLabel lblSoapBrokerConnection = new JLabel("SOAP Broker Connection Server (URI with Port):");
-		lblSoapBrokerConnection.setBounds(26, 258, 242, 15);
+		JLabel lblSoapBrokerConnection = new JLabel("SOAP Broker Connection Server (URL with Port):");
+		lblSoapBrokerConnection.setBounds(26, 265, 242, 15);
 		panelConnection.add(lblSoapBrokerConnection);
 		
-		txtHttplocalhostwebservicespublic_1 = new JTextField();
-		txtHttplocalhostwebservicespublic_1.setText("http://localhost:18080/WebServices/public");
-		txtHttplocalhostwebservicespublic_1.setHorizontalAlignment(SwingConstants.LEFT);
-		txtHttplocalhostwebservicespublic_1.setEditable(true);
-		txtHttplocalhostwebservicespublic_1.setColumns(10);
-		txtHttplocalhostwebservicespublic_1.setBounds(278, 255, 234, 19);
-		panelConnection.add(txtHttplocalhostwebservicespublic_1);
+		txtBrokerSOAPServer = new JTextField();
+		txtBrokerSOAPServer.setText("http://localhost:18080/WebServices/public");
+		txtBrokerSOAPServer.setHorizontalAlignment(SwingConstants.LEFT);
+		txtBrokerSOAPServer.setEditable(true);
+		txtBrokerSOAPServer.setColumns(10);
+		txtBrokerSOAPServer.setBounds(278, 262, 234, 19);
+		panelConnection.add(txtBrokerSOAPServer);
 		
-		JLabel lblRestBrokerConnection = new JLabel("REST Broker Connection Server (URI with Port):");
-		lblRestBrokerConnection.setBounds(26, 296, 242, 15);
+		JLabel lblRestBrokerConnection = new JLabel("REST Broker Connection Server (URL with Port):");
+		lblRestBrokerConnection.setBounds(26, 303, 242, 15);
 		panelConnection.add(lblRestBrokerConnection);
 		
-		txtHttplocalhostrest_1 = new JTextField();
-		txtHttplocalhostrest_1.setText("http://localhost:19999/rest/");
-		txtHttplocalhostrest_1.setHorizontalAlignment(SwingConstants.LEFT);
-		txtHttplocalhostrest_1.setEditable(true);
-		txtHttplocalhostrest_1.setColumns(10);
-		txtHttplocalhostrest_1.setBounds(278, 293, 234, 19);
-		panelConnection.add(txtHttplocalhostrest_1);
+		txtBrokerRESTServer = new JTextField();
+		txtBrokerRESTServer.setText("http://localhost:19999/rest/");
+		txtBrokerRESTServer.setHorizontalAlignment(SwingConstants.LEFT);
+		txtBrokerRESTServer.setEditable(true);
+		txtBrokerRESTServer.setColumns(10);
+		txtBrokerRESTServer.setBounds(278, 300, 234, 19);
+		panelConnection.add(txtBrokerRESTServer);
 		
 		JButton btnDisconnect = new JButton("Disconnect");
 		btnDisconnect.setEnabled(true);
-		btnDisconnect.setBounds(153, 362, 117, 25);
+		btnDisconnect.setBounds(151, 339, 117, 25);
 		panelConnection.add(btnDisconnect);
 		
 		
@@ -275,27 +340,28 @@ public class ClientGUI {
 		//tabbedPane.setEnabledAt(1, connected);
 		panelMain.setLayout(null);
 		
-		JList<Emittent> listEmittents = new JList<Emittent>(listModelEmittents);
-		listEmittents.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-		listEmittents.setBounds(25, 75, 175, 65);
-		panelMain.add(listEmittents);
+		listAccountEmittents = new JList<Emittent>();
+		listAccountEmittents.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		listAccountEmittents.setBounds(25, 75, 175, 65);
+		panelMain.add(listAccountEmittents);
 		
 		JLabel lblKontostand = new JLabel("Kontostand:");
 		lblKontostand.setBounds(25, 14, 73, 14);
 		panelMain.add(lblKontostand);
 		
-		textField_5 = new JTextField();
-		textField_5.setBounds(108, 11, 86, 20);
-		panelMain.add(textField_5);
-		textField_5.setColumns(10);
+		txtKontoStand = new JTextField();
+		txtKontoStand.setEditable(false);
+		txtKontoStand.setBounds(108, 11, 86, 20);
+		panelMain.add(txtKontoStand);
+		txtKontoStand.setColumns(10);
 		
 		JLabel lblMeineEmittents = new JLabel("Meine Emittents:");
 		lblMeineEmittents.setBounds(25, 50, 86, 14);
 		panelMain.add(lblMeineEmittents);
 		
-		JList list = new JList();
-		list.setBounds(274, 42, 270, 98);
-		panelMain.add(list);
+		JList<Auftrag> listAuftraege = new JList<Auftrag>(auftraege);
+		listAuftraege.setBounds(274, 49, 270, 98);
+		panelMain.add(listAuftraege);
 		
 		JLabel lblMeineAuftraege = new JLabel("Meine Auftraege:");
 		lblMeineAuftraege.setBounds(274, 17, 86, 14);
@@ -305,16 +371,17 @@ public class ClientGUI {
 		list_1.setBounds(27, 218, 207, 157);
 		panelMain.add(list_1);
 		
-		JComboBox comboBox = new JComboBox();
-		comboBox.setBounds(134, 179, 100, 20);
-		panelMain.add(comboBox);
+		cmbEmittentSection = new JComboBox();
+		cmbEmittentSection.setBounds(134, 179, 100, 20);
+		panelMain.add(cmbEmittentSection);
 		
 		JLabel lblEmittentSection = new JLabel("Emittent Section:");
 		lblEmittentSection.setBounds(25, 182, 86, 14);
 		panelMain.add(lblEmittentSection);
 		
 		JRadioButton rdbtnKaufen = new JRadioButton("Kaufen");
-		rdbtnKaufen.setBounds(310, 215, 66, 23);
+		rdbtnKaufen.setSelected(true);
+		rdbtnKaufen.setBounds(297, 215, 66, 23);
 		panelMain.add(rdbtnKaufen);
 		
 		JRadioButton rdbtnVerkaufen = new JRadioButton("Verkaufen");
@@ -322,36 +389,67 @@ public class ClientGUI {
 		panelMain.add(rdbtnVerkaufen);
 		
 		JLabel lblEmittent = new JLabel("Emittent:");
-		lblEmittent.setBounds(310, 258, 46, 14);
+		lblEmittent.setBounds(299, 248, 46, 14);
 		panelMain.add(lblEmittent);
 		
-		JComboBox comboBox_1 = new JComboBox();
-		comboBox_1.setBounds(366, 255, 100, 20);
-		panelMain.add(comboBox_1);
+		cmbEmittent = new JComboBox();
+		cmbEmittent.setBounds(368, 245, 100, 20);
+		panelMain.add(cmbEmittent);
 		
 		JLabel lblAnzahl = new JLabel("Anzahl:");
-		lblAnzahl.setBounds(310, 296, 46, 14);
+		lblAnzahl.setBounds(297, 276, 46, 14);
 		panelMain.add(lblAnzahl);
 		
-		textField_6 = new JTextField();
-		textField_6.setBounds(366, 293, 86, 20);
-		panelMain.add(textField_6);
-		textField_6.setColumns(10);
+		txtAnzahl = new JTextField();
+		txtAnzahl.setBounds(366, 273, 86, 20);
+		panelMain.add(txtAnzahl);
+		txtAnzahl.setColumns(10);
 		
 		JLabel lblBedingungPreis = new JLabel("Bedingung - Preis:");
-		lblBedingungPreis.setBounds(310, 338, 100, 14);
+		lblBedingungPreis.setBounds(297, 304, 100, 14);
 		panelMain.add(lblBedingungPreis);
 		
-		textField_7 = new JTextField();
-		textField_7.setBounds(436, 335, 86, 20);
-		panelMain.add(textField_7);
-		textField_7.setColumns(10);
+		txtBedingung = new JTextField();
+		txtBedingung.setBounds(436, 301, 86, 20);
+		panelMain.add(txtBedingung);
+		txtBedingung.setColumns(10);
 		
 		JButton btnAccept = new JButton("Accept");
-		btnAccept.setBounds(376, 366, 89, 23);
+		btnAccept.setBounds(355, 353, 89, 23);
 		panelMain.add(btnAccept);
 		
-		listModelBrokers = new javax.swing.DefaultListModel<Broker>();
+		JComboBox comboBox = new JComboBox();
+		comboBox.setBounds(271, 11, 104, 20);
+		frmClientInterface.getContentPane().add(comboBox);
+		
+		JButton btnStartBot = new JButton("Start Bot");
+		btnStartBot.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				//listAuftraege.;
+			}
+		});
+		btnStartBot.setBounds(393, 10, 89, 23);
+		frmClientInterface.getContentPane().add(btnStartBot);
+		
+		JButton btnStopBot = new JButton("Stop Bot");
+		btnStopBot.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				javax.swing.JPopupMenu popup = new javax.swing.JPopupMenu();
+				javax.swing.JMenuItem menuItem = new javax.swing.JMenuItem("A popup menu item");
+			    menuItem.addActionListener(this);
+			    popup.add(menuItem);
+			    
+			    //javax.swing.MouseListener popupListener = new javax.swing.PopupListener();
+			    //output.addMouseListener(popupListener);
+			    //menuBar.addMouseListener(popupListener);
+				
+				 
+			}
+		});
+		btnStopBot.setBounds(492, 10, 89, 23);
+		frmClientInterface.getContentPane().add(btnStopBot);
+		
+		//listModelBrokers = new javax.swing.DefaultListModel<Broker>();
 		
 		setConnected(false);
 	}
