@@ -30,7 +30,7 @@ public class Auftrag extends at.ac.univie.dse2016.stream.common.dao.PersistableO
 	public void setStatus(AuftragStatus status) { this.status = status; }
 
 	@XmlElement	
-	protected transient Integer ownerId;
+	protected Integer ownerId;
 	//BrokerId oder ClientId
 	public Integer getOwnerId() { return ownerId; }
 
@@ -38,15 +38,15 @@ public class Auftrag extends at.ac.univie.dse2016.stream.common.dao.PersistableO
 	/**
 	 * Auftrag ohne Bedingung
 	 */
-	public Auftrag(boolean kaufen, String ticker, int anzahl) {
-		this(-1, -1, kaufen, ticker, anzahl, -1);
+	public Auftrag(int ownerId, boolean kaufen, String ticker, int anzahl) {
+		this(-1, ownerId, kaufen, ticker, anzahl, -1);
 	}
 
 	/**
 	 * Auftrag mit Bedingung
 	 */
-	public Auftrag(boolean kaufen, String ticker, int anzahl, float bedingung) {
-		this(-1, -1, kaufen, ticker, anzahl, bedingung);
+	public Auftrag(int ownerId, boolean kaufen, String ticker, int anzahl, float bedingung) {
+		this(-1, ownerId, kaufen, ticker, anzahl, bedingung);
 	}
 	
 	public Auftrag(int id, int ownerId, boolean kaufen, String ticker, int anzahl, float bedingung) {

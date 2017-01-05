@@ -7,9 +7,13 @@ import at.ac.univie.dse2016.stream.common.*;
  */
 public class AuftragDAO extends at.ac.univie.dse2016.stream.common.dao.UniversalDAO<Auftrag> {
 	private java.util.TreeMap< Integer /* clientId */, java.util.TreeSet< Auftrag> > auftraegeLog;
-	
+
 	public AuftragDAO(String source) throws IllegalArgumentException {
-		super(source);
+		this(source, false);
+	}
+	
+	public AuftragDAO(String source, boolean ignoreConflicts) throws IllegalArgumentException {
+		super(source, ignoreConflicts);
 		
 		auftraegeLog = new java.util.TreeMap< Integer /* clientId */, java.util.TreeSet< Auftrag> >();
 		for (Auftrag a : super.getItems().values()) {

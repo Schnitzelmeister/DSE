@@ -75,7 +75,7 @@ public class ClientApp {
             	System.out.println(emittents.get(e.getKey()).getTicker() + " = " + e.getValue() + " Stueck");
             }
 
-            System.out.println( "auftragAddNew = " + broker.auftragAddNew( clientId, new Auftrag(true, "AAPL", 100, 100.1f) ) );
+            System.out.println( "auftragAddNew = " + broker.auftragAddNew( clientId, new Auftrag(clientId, true, "AAPL", 100, 100.1f) ) );
 
             for (Transaction t : broker.getTransaktionen(clientId)) {
             	System.out.println( t.getAuftragId() + ": " + t.getAnzahl() + ", " + t.getPrice()  + ", " + t.getDateCommitted() );

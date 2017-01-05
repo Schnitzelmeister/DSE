@@ -43,7 +43,7 @@ public class EmittentDAO extends at.ac.univie.dse2016.stream.common.dao.Universa
 			throw new IllegalArgumentException("Emittent with ticker=" + item.getTicker() + " doesn't exist");
 
 		super.loescheItem(item);
-		emittentByTicker.remove(item);
+		emittentByTicker.remove(item.getTicker());
 	}
 	
 	/**

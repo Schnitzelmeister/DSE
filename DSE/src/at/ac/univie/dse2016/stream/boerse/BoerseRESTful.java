@@ -197,7 +197,7 @@ public class BoerseRESTful implements ExceptionListener {
 	public String emittentEditHTML(@PathParam("id") Integer id, @FormParam("ticker") String ticker, @FormParam("name") String name) throws RemoteException, IllegalArgumentException {
 		try {
 			adminRMI.emittentEdit( new Emittent(id, ticker, name) );
-			return getEmittentsListHTML();
+			return "<html><title>Edit Emittent</title><body><h1>OK - changed</h1><a href=\"../emittents\">List of Emittents</a></body></html>";
 		}
 		catch (Exception e) {
 			return e.getMessage();
@@ -226,13 +226,13 @@ public class BoerseRESTful implements ExceptionListener {
     @Path("/emittent/{id}/lock")
 	@Produces(MediaType.TEXT_HTML)
 	public String emittentLockHTML(@PathParam("id") Integer id, @FormParam("ticker") String ticker) throws RemoteException, IllegalArgumentException {
-		try {
+		//try {
 			adminRMI.emittentLock( new Emittent(id, ticker, "") );
-			return getEmittentsListHTML();
-		}
+			return "<html><title>Lock Emittent</title><body><h1>OK - locked</h1><a href=\"../../emittents\">List of Emittents</a></body></html>";
+		/*}
 		catch (Exception e) {
 			return e.getMessage();
-		}
+		}*/
 	}
 
 	@DELETE
@@ -254,7 +254,7 @@ public class BoerseRESTful implements ExceptionListener {
 	@Produces(MediaType.TEXT_HTML)
 	public String auftragAddNewHTML(@FormParam("owner") Integer brokerId, @FormParam("auftrag") Auftrag auftrag) throws RemoteException, IllegalArgumentException {
 		try {
-			return "<html><title>ddNew Auftrag</title><body><h1>OK - AuftragId=" + _auftragAddNew(brokerId, auftrag) + "</h1></body></html>";
+			return "<html><title>AddNew Auftrag</title><body><h1>OK - AuftragId=" + _auftragAddNew(brokerId, auftrag) + "</h1></body></html>";
 		}
 		catch (Exception e) {
 			return e.getMessage();
@@ -346,7 +346,7 @@ public class BoerseRESTful implements ExceptionListener {
 	public String auftragCancelHTML(@FormParam("owner") Integer brokerId, @PathParam("id") Integer auftragId) throws RemoteException, IllegalArgumentException {
 		try {
 			_auftragCancel(brokerId, auftragId);
-			return "<html><title>ddNew Auftrag</title><body><h1>OK</h1></body></html>";
+			return "<html><title>Cancel Auftrag</title><body><h1>OK</h1></body></html>";
 		}
 		catch (Exception e) {
 			return e.getMessage();

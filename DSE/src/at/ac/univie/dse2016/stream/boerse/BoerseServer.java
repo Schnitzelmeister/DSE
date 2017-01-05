@@ -31,6 +31,12 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 		poolDAO = new PoolDAO( dataPath );
 		System.out.println("Path to DATA Folder = "+ dataPath);
 		System.out.println("Die Daten werden in diesem Folder gespeichert");
+		
+		for (Emittent e : poolDAO.getEmittentDAO().getItems().values()) {
+			marketPrices.put(e.getId(), -1f);
+			emittentSections.put(e.getId(), new EmittentSection() );
+		}
+
 	}
 
 	/**
@@ -688,10 +694,13 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 			throw new IllegalArgumentException("Broker with id=" + brokerId + " does not exist");
 
 		Broker broker = this.poolDAO.getBrokerDAO().getItemById(brokerId);
-		if (amount < 0 && broker.getDisponibelstand() < -amount)
-			throw new IllegalArgumentException("Not enough money");
-		broker.setDisponibelstand(amount);
-		broker.setKontostand(amount);
+		synchronized(broker) {
+			if (amount < 0 && broker.getDisponibelstand() < -amount)
+				throw new IllegalArgumentException("Not enough money");
+			broker.setDisponibelstand(amount);
+			broker.setKontostand(amount);
+			this.poolDAO.getBrokerDAO().speichereItem(broker);
+		}
 	}
 
 	/**
@@ -720,14 +729,18 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 				if (anzahl < 0 && brokerEmittents.get(tickerId) < -anzahl)
 					throw new IllegalArgumentException("Not enough amount of emittent");
 				
-				brokerEmittents.put(tickerId, brokerEmittents.get(tickerId) + anzahl);
+				broker.setKontostand(tickerId, anzahl);
+				broker.setDisponibelstand(tickerId, anzahl);
 			}
 			else {
 				if (anzahl < 0)
 					throw new IllegalArgumentException("Not enough amount of emittent");
 				
-				brokerEmittents.put(tickerId, anzahl);
+				broker.setKontostand(tickerId, anzahl);
+				broker.setDisponibelstand(tickerId, anzahl);
 			}
+			
+			this.poolDAO.getBrokerDAO().speichereItem(broker);
 		}
 	}
 	
@@ -992,6 +1005,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 	    	System.err.println("IO: " + e.getMessage());
 	    }
 	    catch (Exception e){
+	    	e.printStackTrace();
 	    	System.err.println(": " + e.getMessage());
 	    }
 	}
@@ -1151,7 +1165,8 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
     		messageBrokerUrl = args[2];
     	
     	BoerseServer boerse = new BoerseServer(portUDP, messageBrokerUrl, System.getProperty("user.dir") );
-    	   	
+    	
+    	
     	//initial values
     	try {
     		if (boerse.poolDAO.getEmittentDAO().getItems().size() == 0) {
@@ -1163,9 +1178,9 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
     		}
     	}
     	catch (RemoteException e) {
-    		
+    		e.printStackTrace();
     	}
-    	
+
         if (System.getSecurityManager() == null) {
             //System.setSecurityManager(new SecurityManager());
         }

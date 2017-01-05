@@ -31,4 +31,7 @@ public class FeedRequest implements Externalizable {
 	public FeedRequest(Integer[] emittentIds) {
 		this(-1, emittentIds);
 	}
+	
+	public FeedRequest() {
+	}
 }

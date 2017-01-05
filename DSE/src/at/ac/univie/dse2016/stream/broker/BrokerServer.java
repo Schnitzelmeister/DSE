@@ -249,7 +249,7 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 		if ( !emittents.containsKey(auftrag.getTicker()) )
 			throw new IllegalArgumentException("Ticker " + auftrag.getTicker() + " does not exist");
 
-		Integer tickerId = emittents.get( auftrag.getTicker() ).getId();
+		int tickerId = emittents.get( auftrag.getTicker() ).getId();
 		boolean buy = auftrag.getKaufen();
 		int anzahl = auftrag.getAnzahl();
 		float bedingung = auftrag.getBedingung();
@@ -257,7 +257,17 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 		Client client = this.poolDAO.getClientDAO().getItemById(clientId);
 		//lock Client
 		synchronized(client) {
+			/*
 			java.util.TreeMap<Integer, Integer> clientEmittents = client.getDisponibleAccountEmittents();
+			
+			for(java.util.Map.Entry<Integer,Integer> entry : clientEmittents.entrySet()) {
+				Integer key = entry.getKey();
+				  Integer value = entry.getValue();
+
+				  System.out.println(key + " => " + value);
+				}
+			*/
+			
 			
 			if (buy) {
 				
@@ -284,7 +294,8 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 		}
 		
 		try {
-			int ret = boerse.auftragAddNew(this.brokerId, auftrag);
+			Auftrag sent = new Auftrag(-1, this.brokerId, auftrag.getKaufen(), auftrag.getTicker(), auftrag.getAnzahl(), auftrag.getBedingung());
+			int ret = boerse.auftragAddNew(this.brokerId, sent);
 			if (buy)
 				client.setDisponibelstand(-bedingung * anzahl);
 			else
@@ -293,7 +304,7 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			auftrag.setId(ret);
 			auftrag.setStatus(AuftragStatus.Accepted);
 			auftraege.put(ret, auftrag);
-			
+
 			this.poolDAO.getAuftragDAO().speichereItem( auftrag );
 			return ret;
 		}
@@ -404,11 +415,14 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			throw new IllegalArgumentException("Client with id=" + clientId + " does not exist");
 
 		Client client = this.poolDAO.getClientDAO().getItemById(clientId);
-		if (amount < 0 && client.getDisponibelstand() < -amount)
-			throw new IllegalArgumentException("Not enough money");
-		client.setDisponibelstand(amount);
-		client.setKontostand(amount);
-		boerse.tradingAccount(this.brokerId, amount);
+		synchronized(client) {
+			if (amount < 0 && client.getDisponibelstand() < -amount)
+				throw new IllegalArgumentException("Not enough money");
+			client.setDisponibelstand(amount);
+			client.setKontostand(amount);
+			boerse.tradingAccount(this.brokerId, amount);
+			this.poolDAO.getClientDAO().speichereItem(client);
+		}
 	}
 
 	/**
@@ -437,17 +451,21 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 				if (anzahl < 0 && clientEmittents.get(tickerId) < -anzahl)
 					throw new IllegalArgumentException("Not enough amount of emittent");
 				
-				clientEmittents.put(tickerId, clientEmittents.get(tickerId) + anzahl);
+				client.setKontostand(tickerId, anzahl);
+				client.setDisponibelstand(tickerId, anzahl);
 			}
 			else {
 				if (anzahl < 0)
 					throw new IllegalArgumentException("Not enough amount of emittent");
 				
-				clientEmittents.put(tickerId, anzahl);
+				client.setKontostand(tickerId, anzahl);
+				client.setDisponibelstand(tickerId, anzahl);
 			}
 		}
 		
 		boerse.tradingAccount(this.brokerId, tickerId, anzahl);
+		this.poolDAO.getClientDAO().speichereItem(client);
+
 	}
 
 	
@@ -624,8 +642,8 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	    	
 			DatagramPacket requestPacket = new DatagramPacket(bos.toByteArray(), bos.size(), InetAddress.getByName(this.remoteHostBoerse), this.remotePortUDPBoerse);
 			socketUDP.send(requestPacket);
-//			System.out.println( "send Addr = " + requestPacket.getAddress().toString() );
-//          System.out.println( "send Port = " + requestPacket.getPort() );
+			//System.out.println( "send Addr = " + requestPacket.getAddress().toString() );
+			//System.out.println( "send Port = " + requestPacket.getPort() );
 
             
 	    	out.close();
@@ -694,39 +712,51 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			//initial Data, Clients und ihre TradingsKontoStaende
 			switch (brokerId) {
 			case 1: 
-				brokerServer.clientAddNew( new Client(brokerId, "Daniil 1") );
-				brokerServer.tradingAccount(1, 1000000);
-				brokerServer.tradingAccount(1, 1, 100000);
-				brokerServer.tradingAccount(1, 2, 100000);
-				brokerServer.clientAddNew( new Client(brokerId, "Daniil 2") );
-				brokerServer.tradingAccount(2, 100000);
-				brokerServer.tradingAccount(2, 1, 10000);
-				brokerServer.tradingAccount(2, 2, 10000);
+				if (brokerServer.poolDAO.getClientDAO().getItems().size() == 0) {
+					int clId = brokerServer.clientAddNew( new Client(brokerId, "Daniil 1") );
+					brokerServer.tradingAccount(clId, 1000000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 100000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 100000);
+					clId = brokerServer.clientAddNew( new Client(brokerId, "Daniil 2") );
+					brokerServer.tradingAccount(clId, 100000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 10000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 10000);
+				}
 				break;
 			case 2: 
-				brokerServer.clientAddNew( new Client(brokerId, "Jakub 1") );
-				brokerServer.tradingAccount(1, 1000000);
-				brokerServer.tradingAccount(1, 1, 100000);
-				brokerServer.tradingAccount(1, 2, 100000);
-				brokerServer.clientAddNew( new Client(brokerId, "Jakub 2") );
-				brokerServer.tradingAccount(2, 100000);
-				brokerServer.tradingAccount(2, 1, 10000);
-				brokerServer.tradingAccount(2, 2, 10000);
+				if (brokerServer.poolDAO.getClientDAO().getItems().size() == 0) {
+					int clId = brokerServer.clientAddNew( new Client(brokerId, "Jakub 1") );
+					brokerServer.tradingAccount(clId, 1000000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 100000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 100000);
+					clId = brokerServer.clientAddNew( new Client(brokerId, "Jakub 2") );
+					brokerServer.tradingAccount(clId, 100000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 10000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 10000);
+				}
 				break;
 			case 3: 
-				brokerServer.clientAddNew( new Client(brokerId, "Ayrat 1") );
-				brokerServer.tradingAccount(1, 1000000);
-				brokerServer.tradingAccount(1, 1, 100000);
-				brokerServer.tradingAccount(1, 2, 100000);
-				brokerServer.clientAddNew( new Client(brokerId, "Ayrat 2") );
-				brokerServer.tradingAccount(2, 100000);
-				brokerServer.tradingAccount(2, 1, 10000);
-				brokerServer.tradingAccount(2, 2, 10000);
+				if (brokerServer.poolDAO.getClientDAO().getItems().size() == 0) {
+					int clId = brokerServer.clientAddNew( new Client(brokerId, "Ayrat 1") );
+					brokerServer.tradingAccount(clId, 1000000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 100000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 100000);
+					clId = brokerServer.clientAddNew( new Client(brokerId, "Ayrat 2") );
+					brokerServer.tradingAccount(clId, 100000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 10000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 10000);
+				}
 				break;
 			}
 			
 			brokerServer.getFeedUDP();
 			
+			Thread.sleep(3000);
+			brokerServer.auftragAddNew(1, new Auftrag(1, true, "AAPL", 1000, 50) );
+
+			Thread.sleep(3000);
+			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100) );
+
 		}
 		catch(Exception e) {
 			e.printStackTrace();

@@ -43,7 +43,7 @@ public class PoolDAO {
 	    	throw new IllegalArgumentException("Illegal Data Directory Path " + dataDir);
 		
 	    clientDAO = new UniversalDAO<Client>(dataDir + "/client.dao");
-	    auftragDAO = new AuftragDAO(dataDir + "/auftrag.dao");
+	    auftragDAO = new AuftragDAO(dataDir + "/auftrag.dao", true);
 	    transactionDAO = new TransactionDAO(dataDir + "/transaction.dao");
 	}
 }

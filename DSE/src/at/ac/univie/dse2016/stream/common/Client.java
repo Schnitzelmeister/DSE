@@ -1,5 +1,7 @@
 package at.ac.univie.dse2016.stream.common;
 
+import java.io.IOException;
+
 public class Client extends at.ac.univie.dse2016.stream.common.dao.PersistableObject {
 	
 	private static final long serialVersionUID = 100L;
@@ -55,7 +57,7 @@ public class Client extends at.ac.univie.dse2016.stream.common.dao.PersistableOb
 	/**
 	 * Aktive Auftraege des Clients
 	 */
-	protected java.util.TreeMap<Integer, Auftrag> auftraege;
+	protected transient java.util.TreeMap<Integer, Auftrag> auftraege;
 	public java.util.TreeMap<Integer, Auftrag> getAuftraegeList() {
 		return auftraege;
 	}
@@ -83,7 +85,7 @@ public class Client extends at.ac.univie.dse2016.stream.common.dao.PersistableOb
 	/**
 	 * Emittents, die auf dem tradingskonto des Clients sind
 	 */
-	private java.util.TreeMap<Integer /*emittentId*/, Integer /*anzahl*/> disponibleAccountEmittents;
+	private transient java.util.TreeMap<Integer /*emittentId*/, Integer /*anzahl*/> disponibleAccountEmittents;
 	public java.util.TreeMap<Integer /*emittentId*/, Integer /*anzahl*/> getDisponibleAccountEmittents() {
 		return disponibleAccountEmittents;
 	}
@@ -112,7 +114,13 @@ public class Client extends at.ac.univie.dse2016.stream.common.dao.PersistableOb
 		this.name = name;
 		this.auftraege = new java.util.TreeMap<Integer, Auftrag>();
 		this.accountEmittents = new java.util.TreeMap<Integer /*emittentId*/, Integer /*anzahl*/>();
-		this.disponibleAccountEmittents = new java.util.TreeMap<Integer /*emittentId*/, Integer /*anzahl*/>();
+		this.disponibleAccountEmittents = new java.util.TreeMap<Integer /*emittentId*/, Integer /*anzahl*/>(this.accountEmittents);
 	}
+	
+	private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+		    in.defaultReadObject();
+		    this.disponibelstand = kontostand;
+		    this.disponibleAccountEmittents = new java.util.TreeMap<Integer /*emittentId*/, Integer /*anzahl*/>(this.accountEmittents);
+		}
 
 }

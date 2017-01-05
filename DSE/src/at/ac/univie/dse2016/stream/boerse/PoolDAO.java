@@ -52,7 +52,7 @@ public class PoolDAO {
 		
 	    emittentDAO = new EmittentDAO(dataDir + "/emittent.dao");
 	    brokerDAO = new UniversalDAO<Broker>(dataDir + "/broker.dao");
-	    auftragDAO = new AuftragDAO(dataDir + "/auftrag.dao");
-	    transactionDAO = new TransactionDAO(dataDir + "/transaction.dao");
+	    auftragDAO = new AuftragDAO(dataDir + "/bauftrag.dao");
+	    transactionDAO = new TransactionDAO(dataDir + "/btransaction.dao");
 	}
 }

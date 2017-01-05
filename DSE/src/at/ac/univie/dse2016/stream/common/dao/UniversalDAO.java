@@ -16,9 +16,15 @@ public class UniversalDAO <T extends PersistableObject> {
 	private String source;
 	private java.util.TreeMap<Integer, T> container;
 	private AtomicInteger idGen;
-	
-	@SuppressWarnings("unchecked")
+	private boolean ignoreConflicts = true;
+
 	public UniversalDAO(String source) throws IllegalArgumentException {
+		this(source, false);
+	}
+
+	@SuppressWarnings("unchecked")
+	public UniversalDAO(String source, boolean ignoreConflicts) throws IllegalArgumentException {
+		this.ignoreConflicts = ignoreConflicts;
 		this.idGen = new AtomicInteger();
 		this.idGen.set(0);
 		
@@ -30,7 +36,8 @@ public class UniversalDAO <T extends PersistableObject> {
 			this.container = (java.util.TreeMap<Integer, T>)ois.readObject();
 			ois.close();
 			
-			this.idGen.set( this.container.lastKey() );
+			if (this.container.size() > 0)
+				this.idGen.set( this.container.lastKey() );
 		}
 		catch (FileNotFoundException e) {
 	        return;
@@ -70,8 +77,11 @@ public class UniversalDAO <T extends PersistableObject> {
 			item.setId(this.idGen.incrementAndGet());
 			this.container.put(item.getId(), item);
 		}
-		else if ( !container.containsKey(item.getId()) )
-			throw new IllegalArgumentException("Item with id=" + String.valueOf( item.getId() ) + " doesn't exist");
+		else if ( !container.containsKey(item.getId()) ) {
+			if (!ignoreConflicts)
+				throw new IllegalArgumentException("Item with id=" + String.valueOf( item.getId() ) + " doesn't exist");
+			this.container.put(item.getId(), item);
+		}
 
 		save();
 	}
