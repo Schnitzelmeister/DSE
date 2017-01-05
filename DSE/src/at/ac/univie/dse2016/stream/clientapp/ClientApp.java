@@ -18,7 +18,8 @@ public class ClientApp {
 
 		Integer brokerId = Integer.valueOf(args[0]);
 		Integer clientId = Integer.valueOf(args[1]);
-		java.util.ArrayList<Emittent> emittents;
+		java.util.ArrayList<Emittent> ret_emittents;
+		java.util.TreeMap<Integer, Emittent> emittents = new java.util.TreeMap<Integer, Emittent>();
 		
 		String remoteHostBoerse = "localhost";
 		int remotePortUDPBoerse = 10000;
@@ -46,8 +47,12 @@ public class ClientApp {
             Registry registryBoerse = LocateRegistry.getRegistry(remoteHostBoerse, remotePortRMIBoerse);
             BoersePublic boerse = (BoersePublic) registryBoerse.lookup("public");
 
-            emittents = boerse.getEmittentsList();
-            for (Emittent e : emittents)
+            ret_emittents = boerse.getEmittentsList();
+            for (Emittent e : ret_emittents) {
+            	emittents.put(e.getId(), e);
+            }
+
+            for (Emittent e : emittents.values())
             	System.out.println(e.getTicker());
 
             if (args.length < 6)
@@ -66,11 +71,21 @@ public class ClientApp {
             System.out.println(clientState.getName());
             System.out.println(clientState.getKontostand());
 
-            for (java.util.Map.Entry<Integer, Integer> e : clientState.getAccountEmittents().entrySet())
+            for (java.util.Map.Entry<Integer, Integer> e : clientState.getAccountEmittents().entrySet()) {
             	System.out.println(emittents.get(e.getKey()).getTicker() + " = " + e.getValue() + " Stueck");
+            }
 
-//            broker.auftragAddNew( clientId, new Auftrag(true, "AAPL", 10) );
+            System.out.println( "auftragAddNew = " + broker.auftragAddNew( clientId, new Auftrag(true, "AAPL", 100, 100.1f) ) );
 
+            for (Transaction t : broker.getTransaktionen(clientId)) {
+            	System.out.println( t.getAuftragId() + ": " + t.getAnzahl() + ", " + t.getPrice()  + ", " + t.getDateCommitted() );
+            }
+
+            for (Auftrag a : broker.getAuftraege(clientId)) {
+            	System.out.println( a.getId() + ": " + a.getBedingung() + ", " + a.getAnzahl()  + ", " + a.getStatus() );
+            }
+
+            /*
             //SOAP
             QName serviceName = new QName("http://boerse.com/", "BoersePublic");
             QName portName = new QName("http://boerse.com/", "WebServices/public");
@@ -94,7 +109,7 @@ public class ClientApp {
             clientREST.path("broker_network_address").path(3).path(NetworkResource.SOAP.getNumVal()).accept("text/plain");
             System.out.println("result = " + clientREST.get(String.class) );
 
-        
+        */
         } catch (Exception e) {
             System.err.println("Client exception:");
             e.printStackTrace();
