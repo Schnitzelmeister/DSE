@@ -9,19 +9,18 @@ public class EmittentSection {
 	AtomicInteger msgCounter;
 	
 	public EmittentSection() {
-		sell = new java.util.TreeMap<Float, java.util.TreeSet<Auftrag> >();
-		buy = new java.util.TreeMap<Float, java.util.TreeSet<Auftrag> >(new DescendingFloatComparator());
+		sell = new java.util.TreeMap<Integer, java.util.TreeSet<Auftrag> >();
+		buy = new java.util.TreeMap<Integer, java.util.TreeSet<Auftrag> >(new DescendingFloatComparator());
+		activeUDPSessions = new java.util.TreeMap<Integer, UDPSession >();
 		msgCounter = new AtomicInteger();
 		msgCounter.set(0);
 	}
 	
-	public java.util.TreeMap<Float, java.util.TreeSet<Auftrag> > sell;
-	public java.util.TreeMap<Float, java.util.TreeSet<Auftrag> > buy;
+	public java.util.TreeMap<Integer, java.util.TreeSet<Auftrag> > sell;
+	public java.util.TreeMap<Integer, java.util.TreeSet<Auftrag> > buy;
 
-	public java.util.TreeMap<Integer, UDPSession > sessionsUDP;
-	
-	static class DescendingFloatComparator implements java.util.Comparator<Float> {
-	   	public int compare(Float p1, Float p2)
+	static class DescendingFloatComparator implements java.util.Comparator<Integer> {
+	   	public int compare(Integer p1, Integer p2)
 		{
 			if (p1 == p2)
 				return 0;

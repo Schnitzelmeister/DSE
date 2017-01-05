@@ -1,18 +1,8 @@
 package at.ac.univie.dse2016.stream.common;
 
-import java.io.*;
-
-public class Client implements Serializable {
+public class Client extends at.ac.univie.dse2016.stream.common.dao.PersistableObject {
 	
 	private static final long serialVersionUID = 100L;
-	
-	protected Integer id;
-	public Integer getId() { return id; }
-
-	public void setId(Integer id){
-		this.id = id;
-	}
-
 	/**
 	 * fuer ein Boersenmakler ist -1,
 	 * fuer Broker ist Id von Boersenmakler, bei dem er arbeitet
@@ -109,64 +99,13 @@ public class Client implements Serializable {
 			disponibleAccountEmittents.put(tickerId, 0);
 		disponibleAccountEmittents.put(tickerId, disponibleAccountEmittents.get(tickerId) + diff);
 	}
-	
-
-	/**
-	 * FeedMsg Counter
-	 */
-	//transient protected int iFeedMsgCounter = 0;
-	
-	/**
-	 * Die Tickers, die der Client abfragen will
- 	 */
-	//transient String[] tickers;
-
-	/*private void SendUDPRequest(Integer status) {
-		try {
-			DatagramSocket socket = new DatagramSocket(Boerse.FeedUDPPort);
-			
-			FeedRequest request;
-			if (status == 0)
-				request = new FeedRequest(this.id, status, tickers);
-			else
-				request = new FeedRequest(this.id, status, null); 
-			
-			byte[] sendBuf = new byte[256];
-	
-			InetAddress address = InetAddress.getByName(serverUDP);
-			DatagramPacket packet = new DatagramPacket(sendBuf, sendBuf.length, 
-			                                address, 4445);
-			socket.send(packet);
-			package at.ac.univie.dse2016.stream.common;
-
-			public class Client {
-
-			}
-
-			if (status == 0) {
-				
-			}
-			else {
-				
-			}
-		}
-	    catch (SocketException e){
-	        System.err.println("Socket: " + e.getMessage());
-	    }
-	    catch (IOException e){
-	    	System.err.println("IO: " + e.getMessage());
-	    }
-
 		
-	}
-	*/
-	
 	public Client(Integer parentId, String name) {
 		this(-1, parentId, 0, name);
 	}
 
 	public Client(Integer id, Integer parentId, float kontostand, String name) {
-		this.id = id;
+		super(id);
 		this.parentId = parentId;
 		this.kontostand = kontostand;
 		this.disponibelstand = kontostand;

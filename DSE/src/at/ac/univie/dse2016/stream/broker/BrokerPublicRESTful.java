@@ -6,7 +6,7 @@ import at.ac.univie.dse2016.stream.common.*;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import java.rmi.RemoteException;
-import java.util.List;
+
 
 /**
  * Created by rabizo on 25.11.16.

@@ -5,8 +5,6 @@ import java.rmi.registry.Registry;
 
 import at.ac.univie.dse2016.stream.common.BoersePublic;
 import at.ac.univie.dse2016.stream.common.BrokerAdmin;
-import at.ac.univie.dse2016.stream.common.Client;
-import at.ac.univie.dse2016.stream.common.Emittent;
 import at.ac.univie.dse2016.stream.common.NetworkResource;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;

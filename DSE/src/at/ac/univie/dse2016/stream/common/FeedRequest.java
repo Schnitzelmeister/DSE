@@ -1,8 +1,8 @@
 package at.ac.univie.dse2016.stream.common;
 
-import java.io.*;;
+import java.io.*;
 
-public class FeedRequest implements Serializable {
+public class FeedRequest implements Externalizable {
 
 	private static final long serialVersionUID = 100L;
 	

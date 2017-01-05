@@ -1,7 +1,6 @@
 package at.ac.univie.dse2016.stream.common;
 
-import java.io.*;;
-
+import java.io.*;
 
 public class FeedMsg implements Externalizable {
 
@@ -49,6 +48,9 @@ public class FeedMsg implements Externalizable {
 		id2 = in.readInt();
 	}
 
+	public FeedMsg() {
+	}
+	
 	public FeedMsg(Integer counter, Integer id, Integer tickerId, boolean kaufen, Integer anzahl, float price, AuftragStatus status) {
 		this(counter, id, tickerId, kaufen, anzahl, price, status, -1);
 	}

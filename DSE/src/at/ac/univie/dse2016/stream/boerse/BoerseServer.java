@@ -6,43 +6,37 @@ import java.security.*;
 import java.util.Date;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.xml.ws.Endpoint;
+import javax.jms.*;
 
-import java.rmi.RemoteException;
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
-import java.rmi.server.UnicastRemoteObject;
+import org.apache.activemq.ActiveMQConnectionFactory;
+import org.apache.activemq.broker.BrokerService;
+
+import java.rmi.*;
+import java.rmi.registry.*;
+import java.rmi.server.*;
 
 import at.ac.univie.dse2016.stream.common.*;
 
-public final class BoerseServer implements BoerseAdmin, BoerseClient {
-		
-	static class DescendingTransactionDateComparator implements java.util.Comparator<Transaction> {
-	   	public int compare(Transaction p1, Transaction p2)
-		{
-			if (p1 == p2 || p1.getDateCommitted().equals(p2.getDateCommitted()))
-				return 0;
-			else if (p2.getDateCommitted().after(p1.getDateCommitted()))
-				return 1;
-			else
-				return -1;
-		}
-	}
+
+public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageListener, ExceptionListener  {
 	
-	public BoerseServer(int portUDP) {
-		super();
+	public BoerseServer(int portUDP, String messageBrokerUrl, String dataPath) {
 		this.portUDP = portUDP;
+		this.messageBrokerUrl = messageBrokerUrl;
 		status = BoerseStatus.Closed;
-		emittents = new java.util.TreeMap<String, Emittent>();
-		brokers = new java.util.TreeMap<Integer, Broker>();
 		marketPrices = new java.util.TreeMap<Integer, Float>();
 		emittentSections = new java.util.TreeMap< Integer /* emittentId */, EmittentSection >();
-		auftraegeLog = new java.util.TreeMap< Integer /* clientId */, java.util.TreeSet<Auftrag> >();
-		transactionLog = new java.util.TreeMap< Integer /* clientId */, java.util.TreeSet<Transaction> >();
-		auftragId = new AtomicInteger();
-		auftragId.set(0);
+
+		//init DAO
+		poolDAO = new PoolDAO( dataPath );
+		System.out.println("Path to DATA Folder = "+ dataPath);
+		System.out.println("Die Daten werden in diesem Folder gespeichert");
 	}
 
+	/**
+	 * DAO Objects
+	 */
+	private PoolDAO poolDAO;
 	
 	/**
 	 * Status der Boerse, Open, Closed oder Error
@@ -51,46 +45,16 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	public BoerseStatus getStatus() { return status; }
 
 	/**
-	 * Emittents, die auf der Boerse gekauft/verkauft werden duerfen
-	 */
-	private java.util.TreeMap<String, Emittent> emittents;
-
-	/**
 	 * Die Preise, mit denen den letzten Auftrag ueberwiesen wurden
 	 */
 	private java.util.TreeMap<Integer, Float> marketPrices;
 
 	/**
-	 * Brokers, die auf der Boerse arbeiten duerfenlastCommitedTransactions
-	 */
-	private java.util.TreeMap<Integer, Broker> brokers;
-
-	/**
 	 * Emittent Sections
 	 */
 	private java.util.TreeMap< Integer /* emittentId */, EmittentSection > emittentSections;
-
-	/**
-	 * Letzte ausgefuehrte Auftraege
-	 */
-	//private java.util.TreeMap< Integer /* emittentId */, Transaction > lastCommitedTransactions;
-
 	
-	/**
-	 * Alle Auftraege der Boerse
-	 */
-	private java.util.TreeMap< Integer /* clientId */, java.util.TreeSet< Auftrag> > auftraegeLog;
 
-	/**
-	 * Committed Tramsactions, sorted by Date
-	 */
-	private java.util.TreeMap< Integer /* clientId */, java.util.TreeSet<Transaction> > transactionLog;
-
-	/**
-	 * Counter fuer Auftraege
-	 */
-	private AtomicInteger auftragId;
-	
 	/**
 	 * UDP Port
 	 */
@@ -100,50 +64,34 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	 * AddNew Emittent, Admin's Function
 	 */
 	public Integer emittentAddNew(Emittent emittent) throws RemoteException, IllegalArgumentException {
-		if ( emittents.containsKey(emittent.getTicker()) )
-			throw new IllegalArgumentException("Ticker " + emittent.getTicker() + " exists");
-		
-		Emittent actualEmittent;
-		
-		synchronized(emittents) {
-			actualEmittent = new Emittent(emittents.size() + 1, emittent.getTicker(), emittent.getName());
-			emittents.put(actualEmittent.getTicker(), actualEmittent);
-			marketPrices.put(actualEmittent.getId(), -1f);
-			emittentSections.put(actualEmittent.getId(), new EmittentSection() );
+		synchronized(this.poolDAO.getEmittentDAO()) {
+			this.poolDAO.getEmittentDAO().speichereItem(emittent);
+
+			marketPrices.put(emittent.getId(), -1f);
+			emittentSections.put(emittent.getId(), new EmittentSection() );
 		}
-		return actualEmittent.getId();
+		return emittent.getId();
 	}
 
 	/**
 	 * Edit Emittent, Admin's Function
 	 */
 	public synchronized void emittentEdit(Emittent emittent) throws RemoteException, IllegalArgumentException {
-		if ( !emittents.containsKey(emittent.getTicker()) )
-			throw new IllegalArgumentException("Ticker " + emittent.getTicker() + " does not exist");
-		
-		Emittent actual_emitent = emittents.get(emittent.getTicker());
-		
-		if (actual_emitent.getId().intValue() != emittent.getId().intValue())
-			throw new IllegalArgumentException("Ticker " + emittent.getTicker() + " has other Id");
-	
-		actual_emitent.setName(emittent.getName());
+		synchronized(this.poolDAO.getEmittentDAO()) {
+			Emittent _dest = this.poolDAO.getEmittentDAO().getItemById(emittent.getId());
+			_dest.setName(emittent.getName());
+			this.poolDAO.getEmittentDAO().speichereItem(_dest);
+		}
 	}
 	
 	/**
 	 * Lock Emittent, not Remove, Admin's Function
 	 */
 	public void emittentLock(Emittent emittent) throws RemoteException, IllegalArgumentException {
-		if ( !emittents.containsKey(emittent.getTicker()) )
-			throw new IllegalArgumentException("Ticker " + emittent.getTicker() + " does not exist");
-		
-		Emittent actualEmittent = emittents.get(emittent.getTicker());
-		if (actualEmittent.getId().intValue() != emittent.getId().intValue())
-			throw new IllegalArgumentException("Ticker " + emittent.getTicker() + " has other Id");
-
-		synchronized(emittents) {
-			marketPrices.remove( actualEmittent.getId() );
-			emittents.remove( actualEmittent.getTicker() );
-			emittentSections.remove( actualEmittent.getId() );
+		synchronized(this.poolDAO.getEmittentDAO()) {
+			this.poolDAO.getEmittentDAO().loescheItem(emittent);
+			marketPrices.remove( emittent.getId() );
+			emittentSections.remove( emittent.getId() );
 		}
 	}
 
@@ -151,46 +99,34 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	 * Get all Emittents, Admin's Function
 	 */
 	public java.util.ArrayList<Emittent> getEmittentsList() throws RemoteException {
-		java.util.ArrayList<Emittent> ret = new java.util.ArrayList<Emittent>(emittents.values());
-		return ret;
+		return new java.util.ArrayList<Emittent>( this.poolDAO.getEmittentDAO().getItems().values() );
 	}
 	
 	/**
 	 * AddNew Broker, Admin's Function
 	 */
 	public Integer brokerAddNew(Broker broker) throws RemoteException, IllegalArgumentException {
-		if ( brokers.containsKey(broker.getId()) )
-			throw new IllegalArgumentException("Client " + String.valueOf(broker.getId()) + " exists");
-		
-		Broker actualBroker;
-		synchronized(brokers) {
-			actualBroker = new Broker(brokers.size() + 1, broker.getKontostand(), broker.getName(), broker.getNetworkRMIAddress(), 
-					broker.getNetworkSOAPAddress(), broker.getNetworkRESTAddress(), broker.getPhone(), broker.getLicense());
-			brokers.put(actualBroker.getId(), actualBroker);
-			transactionLog.put(actualBroker.getId(), new java.util.TreeSet<Transaction>( new DescendingTransactionDateComparator() ) );
+		synchronized(this.poolDAO.getBrokerDAO()) {
+			this.poolDAO.getBrokerDAO().speichereItem(broker);
 		}
-		return actualBroker.getId();
+		return broker.getId();
 	}
 
 	/**
 	 * Edit Broker, Admin's Function
 	 */
 	public void brokerEdit(Broker broker) throws RemoteException, IllegalArgumentException {
-		if ( !brokers.containsKey(broker.getId()) )
-			throw new IllegalArgumentException("Client " + String.valueOf(broker.getId()) + " does not exist");
-		
-		brokers.put( broker.getId(), broker );
+		synchronized(this.poolDAO.getBrokerDAO()) {
+			this.poolDAO.getBrokerDAO().speichereItem(broker);
+		}
 	}
 	
 	/**
 	 * Lock Broker, not Remove, Admin's Function
 	 */
 	public void brokerLock(Broker broker) throws RemoteException, IllegalArgumentException {
-		if ( !brokers.containsKey(broker.getId()) )
-			throw new IllegalArgumentException("Client " + String.valueOf(broker.getId()) + " does not exist");
-		
-		synchronized(brokers) {
-			brokers.remove(broker.getId());
+		synchronized(this.poolDAO.getBrokerDAO()) {
+			this.poolDAO.getBrokerDAO().loescheItem(broker);
 		}
 	}
 	
@@ -198,8 +134,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	 * Get all Brokers, Admin's Function
 	 */
 	public java.util.ArrayList<Broker> getBrokersList() throws RemoteException {
-		java.util.ArrayList<Broker> ret = new java.util.ArrayList<Broker>(brokers.values());
-		return ret;
+		return new java.util.ArrayList<Broker>(this.poolDAO.getBrokerDAO().getItems().values());
 	}
 	
 	/**
@@ -208,8 +143,10 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	public synchronized void Close() throws RemoteException {
 		if (status != BoerseStatus.Open)
 			return;
-			
+
 		status = BoerseStatus.Closed;
+
+        stopMessaging();
 		stopFeedUDP();
 		
 		threadUDP.interrupt();
@@ -219,7 +156,9 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	 * Oeffnet die Boerse, Admin's Function oder ScheduleJob
 	 */
 	public synchronized void Open() throws RemoteException {
-        //start UDP
+		sessionCounter = new AtomicInteger();
+
+		//start UDP
         threadUDP = new Thread() {
             public void run() {
             	startFeedUDP();
@@ -228,58 +167,86 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 
         threadUDP.start();
         
+        //start Messaging
+        startMessaging();
+        
 		status = BoerseStatus.Open;
 	}
 	
 	
 	public java.util.TreeSet<Auftrag> getAuftraege(Integer brokerId) throws RemoteException, IllegalArgumentException {
-		if ( !brokers.containsKey(brokerId) )
+		if ( !this.poolDAO.getBrokerDAO().containsKey(brokerId) )
 			throw new IllegalArgumentException("Client " + String.valueOf(brokerId) + " does not exist");
 
-		return auftraegeLog.get(brokerId);
+		return this.poolDAO.getAuftragDAO().getAuftraege(brokerId);
 	}
 
 	public java.util.TreeSet<Transaction> getTransaktionen(Integer brokerId) throws RemoteException, IllegalArgumentException {
-		if ( !brokers.containsKey(brokerId) )
+		if ( !this.poolDAO.getBrokerDAO().containsKey(brokerId) )
 			throw new IllegalArgumentException("Client " + String.valueOf(brokerId) + " does not exist");
 
-		return transactionLog.get(brokerId);
+		java.util.TreeSet<Transaction> ret = new java.util.TreeSet<Transaction>();
 		
+		for (Auftrag a : this.poolDAO.getAuftragDAO().getAuftraege(brokerId)) {
+			for (Transaction t : this.poolDAO.getTransactionDAO().getTransactions(a.getId())) {
+				ret.add(t);
+			}
+		}
+		
+		return ret;
 	}
 	
 	public java.util.TreeSet<Transaction> getTransaktionen(Integer brokerId, Date afterDate) throws RemoteException, IllegalArgumentException {
-		if ( !brokers.containsKey(brokerId) )
+		if ( !this.poolDAO.getBrokerDAO().containsKey(brokerId) )
 			throw new IllegalArgumentException("Client " + String.valueOf(brokerId) + " does not exist");
 
-		return new java.util.TreeSet<Transaction> ( transactionLog.get(brokerId).headSet( new Transaction(0, 0, 0, afterDate), true ) );
+		java.util.TreeSet<Transaction> ret = new java.util.TreeSet<Transaction>();
+		
+		for (Auftrag a : this.poolDAO.getAuftragDAO().getAuftraege(brokerId)) {
+			for (Transaction t : this.poolDAO.getTransactionDAO().getTransactions(a.getId())) {
+				if (t.getDateCommitted().after(afterDate))
+					ret.add(t);
+			}
+		}
+		
+		return ret;
+
+		//return new java.util.TreeSet<Transaction> ( transactionLog.get(brokerId).headSet( new Transaction(0, 0, 0, afterDate), true ) );
 	}
 
 	/**
 	 * Get current State des Brokers
 	 */
 	public Broker getState(Integer brokerId) throws RemoteException, IllegalArgumentException {
-		if ( !brokers.containsKey(brokerId) )
+		if ( !this.poolDAO.getBrokerDAO().containsKey(brokerId) )
 			throw new IllegalArgumentException("Client with id=" + brokerId + " does not exist");
 
-		return brokers.get(brokerId);
+		return this.poolDAO.getBrokerDAO().getItemById(brokerId);
 	}
 	/**
 	 * Auftrag eines Brokers stellen
 	 */
 	public Integer auftragAddNew(Integer brokerId, Auftrag auftrag) throws RemoteException, IllegalArgumentException {
-		if ( !brokers.containsKey(brokerId) )
+		if ( status != BoerseStatus.Open )
+			throw new IllegalArgumentException("Die Boerse ist geschlossen");
+			
+		if ( !this.poolDAO.getBrokerDAO().containsKey(brokerId) )
 			throw new IllegalArgumentException("Broker with id=" + brokerId + " does not exist");
 
-		if ( !emittents.containsKey(auftrag.getTicker()) )
+		if ( !this.poolDAO.getEmittentDAO().containsTicker(auftrag.getTicker()) )
 			throw new IllegalArgumentException("Ticker " + auftrag.getTicker() + " does not exist");
 
-		Integer tickerId = emittents.get( auftrag.getTicker() ).getId();
+		if (auftrag.getOwnerId() != brokerId)
+			throw new IllegalArgumentException("Auftrag has not equal OwnerIds");
+
+		Integer tickerId = this.poolDAO.getEmittentDAO().getEmittentByTicker( auftrag.getTicker() ).getId();
 		boolean buy = auftrag.getKaufen();
 		int anzahl = auftrag.getAnzahl();
 		float bedingung = auftrag.getBedingung();
+		Integer bedingungInteger = Math.round(bedingung * 10000);	//es ist zulaessig nur 4 Ziffern nach der Komma zu stellen
 		int newAuftragId = -1;
 		
-		Broker broker = this.brokers.get(brokerId);
+		Broker broker = this.poolDAO.getBrokerDAO().getItemById(brokerId);
 		//lock Broker
 		synchronized(broker) {
 			java.util.TreeMap<Integer, Integer> brokerEmittents = broker.getDisponibleAccountEmittents();
@@ -308,7 +275,8 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 			}
 
 			//generate auftragId
-			auftrag.setId( newAuftragId = auftragId.incrementAndGet() );
+			setToLog(brokerId, auftrag);
+			newAuftragId = auftrag.getId();
 			
 			//find Emittent Section
 			EmittentSection emittentSection = emittentSections.get(tickerId);
@@ -331,39 +299,42 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 					//es gibt keine passende Auftraege, dann muss man einfach den Auftrag in der Sektion hinzufuegen 
 					if (!commitTransaction) {
 						
-						java.util.TreeMap<Float, java.util.TreeSet<Auftrag> > _map;
+						java.util.TreeMap<Integer, java.util.TreeSet<Auftrag> > _map;
 						if (buy)
 							_map = emittentSection.buy;
 						else
 							_map = emittentSection.sell;
 				
-						if (!_map.containsKey(bedingung))
-							_map.put(bedingung, new java.util.TreeSet<Auftrag>());
-	
-						_map.get(bedingung).add(auftrag);
+						if (!_map.containsKey(bedingungInteger))
+							_map.put(bedingungInteger, new java.util.TreeSet<Auftrag>());					
+						
+						_map.get(bedingungInteger).add(auftrag);
 						
 						if (buy)
 							broker.setDisponibelstand(-bedingung * anzahl);
 						else
 							broker.setDisponibelstand(tickerId, -anzahl);
 						
+						//send asynchrone
+						sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, buy, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Accepted));
+
 						return newAuftragId;
 					}
 				}
 				
 				//commit Transaction
-				java.util.TreeMap<Float, java.util.TreeSet<Auftrag> > _map;
+				java.util.TreeMap<Integer, java.util.TreeSet<Auftrag> > _map;
 				if (buy)
 					_map = emittentSection.sell;
 				else
 					_map = emittentSection.buy;
 				
-		    	for(java.util.Iterator< java.util.Map.Entry< Float, java.util.TreeSet<Auftrag> >> ito = _map.entrySet().iterator(); ito.hasNext(); ) {
-		    		java.util.Map.Entry< Float, java.util.TreeSet<Auftrag> > e = ito.next();	  
+		    	for(java.util.Iterator< java.util.Map.Entry< Integer, java.util.TreeSet<Auftrag> >> ito = _map.entrySet().iterator(); ito.hasNext(); ) {
+		    		java.util.Map.Entry< Integer, java.util.TreeSet<Auftrag> > e = ito.next();	  
 
 		    		for(java.util.Iterator< Auftrag > it = e.getValue().iterator(); it.hasNext(); ) {
 		    			Auftrag a = it.next();	  
-						Broker secondBroker = brokers.get( a.getOwnerId() );
+						Broker secondBroker = this.poolDAO.getBrokerDAO().getItemById( a.getOwnerId() );
 						
 						//test, ob es genug geld, aktien bei beiden brokers sind
 
@@ -376,9 +347,11 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 									if (!committed)
 										throw new IllegalArgumentException("Not enough money");
 
-									//save to log auftrag
 									auftrag.setStatus(AuftragStatus.Bearbeitet);
-									setToLog(brokerId, auftrag);
+									
+									//send asynchrone
+									sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, buy, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Bearbeitet));
+									
 									return newAuftragId;
 								}
 								//kein Emittent bei Verkauefer - sollte unmoeglich sein
@@ -390,19 +363,19 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 									committed = true;
 									commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), anzahl, true, emittentSection.msgCounter.incrementAndGet(), (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.Accepted);
 									if (a.getAnzahl() == anzahl) {
-										//save to log a
+
 										a.setStatus(AuftragStatus.Bearbeitet);
-										setToLog(a.getOwnerId(), a);
 										it.remove();
 									}
 									else {
 										a.setAnzahl(a.getAnzahl() - anzahl);
 									}
 	
-									//save to log auftrag
 									auftrag.setStatus(AuftragStatus.Bearbeitet);
-									setToLog(brokerId, auftrag);
 									
+									//send asynchrone
+									sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, buy, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Bearbeitet));
+
 									return newAuftragId;
 								}
 								//commit teilweise
@@ -410,9 +383,8 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 									committed = true;
 									commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), a.getAnzahl(), true, emittentSection.msgCounter.incrementAndGet(), AuftragStatus.Bearbeitet);
 									anzahl -= a.getAnzahl();
-									//save to log a
+
 									a.setStatus(AuftragStatus.Bearbeitet);
-									setToLog(a.getOwnerId(), a);
 									it.remove();
 								}
 							}
@@ -433,18 +405,17 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 										committed = true;
 										commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), anzahl, true, emittentSection.msgCounter.incrementAndGet(), (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.Accepted);
 										if (a.getAnzahl() == anzahl) {
-											//save to log a
 											a.setStatus(AuftragStatus.Bearbeitet);
-											setToLog(a.getOwnerId(), a);
 											it.remove();
 										}
 										else {
 											a.setAnzahl(a.getAnzahl() - anzahl);
 										}
 	
-										//save to log auftrag
 										auftrag.setStatus(AuftragStatus.Bearbeitet);
-										setToLog(brokerId, auftrag);
+
+										//send asynchrone
+										sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, buy, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Bearbeitet));
 
 										return newAuftragId;
 									}
@@ -454,9 +425,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 										commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), a.getAnzahl(), true, emittentSection.msgCounter.incrementAndGet(), AuftragStatus.Bearbeitet);
 										anzahl -= a.getAnzahl();
 										
-										//save to log a
 										a.setStatus(AuftragStatus.Bearbeitet);
-										setToLog(a.getOwnerId(), a);
 										it.remove();
 
 									}
@@ -467,13 +436,13 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 									
 									broker.setDisponibelstand(-bedingung * anzahl);
 
+									if (!emittentSection.buy.containsKey(bedingungInteger))
+										emittentSection.buy.put(bedingungInteger, new java.util.TreeSet<Auftrag>());
+									emittentSection.buy.get(bedingungInteger).add(auftrag);
+									
 									//send asynchrone
 									sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, true, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Accepted));
 
-									if (!emittentSection.buy.containsKey(bedingung))
-										emittentSection.buy.put(bedingung, new java.util.TreeSet<Auftrag>());
-									emittentSection.buy.get(bedingung).add(auftrag);
-									
 									return newAuftragId;
 								}
 							}
@@ -496,19 +465,18 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 									committed = true;
 									commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), anzahl, false, emittentSection.msgCounter.incrementAndGet(), (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.Accepted);
 									if (a.getAnzahl() == anzahl) {
-										//save to log a
 										a.setStatus(AuftragStatus.Bearbeitet);
-										setToLog(a.getOwnerId(), a);
 										it.remove();
 									}
 									else {
 										a.setAnzahl(a.getAnzahl() - anzahl);
 									}
 	
-									//save to log auftrag
 									auftrag.setStatus(AuftragStatus.Bearbeitet);
-									setToLog(brokerId, auftrag);
 									
+									//send asynchrone
+									sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, buy, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Bearbeitet));
+
 									return newAuftragId;
 								}
 								//commit teilweise
@@ -516,9 +484,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 									committed = true;
 									commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), a.getAnzahl(), false, emittentSection.msgCounter.incrementAndGet(), AuftragStatus.Bearbeitet);
 									anzahl -= a.getAnzahl();
-									//save to log a
 									a.setStatus(AuftragStatus.Bearbeitet);
-									setToLog(a.getOwnerId(), a);
 									it.remove();
 								}
 							}
@@ -540,18 +506,17 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 										committed = true;
 										commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), anzahl, false, emittentSection.msgCounter.incrementAndGet(), (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.Accepted);
 										if (a.getAnzahl() == anzahl) {
-											//save to log a
 											a.setStatus(AuftragStatus.Bearbeitet);
-											setToLog(a.getOwnerId(), a);
 											it.remove();
 										}
 										else {
 											a.setAnzahl(a.getAnzahl() - anzahl);
 										}
 	
-										//save to log auftrag
 										auftrag.setStatus(AuftragStatus.Bearbeitet);
-										setToLog(brokerId, auftrag);
+										
+										//send asynchrone
+										sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, buy, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Bearbeitet));
 										
 										return newAuftragId;
 									}
@@ -560,9 +525,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 										committed = true;
 										commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), a.getAnzahl(), false, emittentSection.msgCounter.incrementAndGet(), AuftragStatus.Bearbeitet);
 										anzahl -= a.getAnzahl();
-										//save to log a
 										a.setStatus(AuftragStatus.Bearbeitet);
-										setToLog(a.getOwnerId(), a);
 										it.remove();
 									}
 								}
@@ -572,14 +535,14 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 									
 									broker.setDisponibelstand(tickerId, -anzahl);
 
+									if (!emittentSection.sell.containsKey(bedingungInteger))
+										emittentSection.sell.put(bedingungInteger, new java.util.TreeSet<Auftrag>());
+				
+									emittentSection.sell.get(bedingungInteger).add(auftrag);
+									
 									//send asynchrone
 									sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, false, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Accepted));
 
-									if (!emittentSection.sell.containsKey(bedingung))
-										emittentSection.sell.put(bedingung, new java.util.TreeSet<Auftrag>());
-				
-									emittentSection.sell.get(bedingung).add(auftrag);
-									
 									return newAuftragId;
 	
 								}
@@ -594,29 +557,32 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 		    	//bedingung nicht passt - add to Section, was bleibt
 		    	if (auftrag.getBedingung() > 0) {
 		    		if (auftrag.getKaufen()) {
-						if (!emittentSection.buy.containsKey(bedingung))
-							emittentSection.buy.put(bedingung, new java.util.TreeSet<Auftrag>());
+						if (!emittentSection.buy.containsKey(bedingungInteger))
+							emittentSection.buy.put(bedingungInteger, new java.util.TreeSet<Auftrag>());
 	
-						emittentSection.buy.get(bedingung).add(auftrag);
+						emittentSection.buy.get(bedingungInteger).add(auftrag);
 						
 						broker.setDisponibelstand(-bedingung * anzahl);
 		    		}
 		    		else {
-						if (!emittentSection.sell.containsKey(bedingung))
-							emittentSection.sell.put(bedingung, new java.util.TreeSet<Auftrag>());
+						if (!emittentSection.sell.containsKey(bedingungInteger))
+							emittentSection.sell.put(bedingungInteger, new java.util.TreeSet<Auftrag>());
 	
-						emittentSection.sell.get(bedingung).add(auftrag);
+						emittentSection.sell.get(bedingungInteger).add(auftrag);
 						
 						broker.setDisponibelstand(tickerId, -anzahl);
 		    		}
+		    		
+					//send asynchrone
+					sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, auftrag.getKaufen(), anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Accepted));
 		    	}
 		    	else {
-					if (!committed)
+					if (_map.size() == 0)
+						throw new IllegalArgumentException("No Orders");
+		    		if (!committed)
 						throw new IllegalArgumentException("Not enough money");
 
-					//save to log auftrag
 					auftrag.setStatus(AuftragStatus.TeilweiseBearbeitet);
-					setToLog(brokerId, auftrag);
 					return newAuftragId;
 		    	}
 		    		
@@ -650,27 +616,29 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 		//send asynchrone
 		sendFeedMsg(new FeedMsg(msgCounter, auftrag2.getId(), tickerId, buy, anzahl, preis, status, auftrag1.getId()));
 		
-		this.transactionLog.get(broker1.getBrokerId()).add(new Transaction(auftrag1.getId(), anzahl, preis));
-		this.transactionLog.get(broker2.getBrokerId()).add(new Transaction(auftrag2.getId(), anzahl, preis));
+		this.poolDAO.getTransactionDAO().speichereItem(new Transaction(auftrag1.getId(), auftrag2.getId(), anzahl, preis));
 	}
 	
 	/**
 	 * Auftrag eines Brokers zurueckrufen
 	 */
 	public void auftragCancel(Integer brokerId, Integer auftragId) throws RemoteException, IllegalArgumentException {
-		if ( !brokers.containsKey(brokerId) )
+		if ( status != BoerseStatus.Open )
+			throw new IllegalArgumentException("Die Boerse ist geschlossen");
+		
+		if ( !this.poolDAO.getBrokerDAO().containsKey(brokerId) )
 			throw new IllegalArgumentException("Broker with id=" + brokerId + " does not exist");
 
-		Broker broker = this.brokers.get(brokerId);
+		Broker broker = this.poolDAO.getBrokerDAO().getItemById(brokerId);
 		java.util.TreeMap<Integer, Auftrag> auftraege = broker.getAuftraegeList();	
 		if ( !auftraege.containsKey(auftragId) )
-			throw new IllegalArgumentException("Auftrag with id=" + auftragId + " does not exist");
-		
-		Auftrag auftrag = auftraege.get(auftragId);
-		if (auftrag.getStatus() != AuftragStatus.Accepted)
 			throw new IllegalArgumentException("Auftrag with id=" + auftragId + " can not be canceled");
 		
-		int tickerId = emittents.get( auftrag.getTicker() ).getId();
+		Auftrag auftrag = auftraege.get(auftragId);
+		if (auftrag.getOwnerId() != brokerId)
+			throw new IllegalArgumentException("Auftrag with id=" + auftragId + " can not be canceled");
+		
+		int tickerId = this.poolDAO.getEmittentDAO().getEmittentByTicker( auftrag.getTicker() ).getId();
 		EmittentSection emittentSection = emittentSections.get( tickerId );
 		
 		int msgCounter;
@@ -702,15 +670,10 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 			broker.setDisponibelstand(tickerId, auftrag.getAnzahl());
 		
 		auftrag.setStatus(AuftragStatus.Canceled);
-		
-		setToLog(brokerId, auftrag);
 	}
 	
 	private void setToLog(int brokerId, Auftrag auftrag) {
-		if ( auftraegeLog.containsKey(brokerId) )
-			auftraegeLog.put(brokerId, new java.util.TreeSet<Auftrag>() );
-		
-		auftraegeLog.get(brokerId).add(auftrag);
+		this.poolDAO.getAuftragDAO().speichereItem(auftrag);
 	}
 	
 	/**
@@ -721,10 +684,10 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	 * wenn sie das machen, dann heisst es das sie das Geld zu/von ihrem Konto ueberweisen
 	 */
 	public void tradingAccount(Integer brokerId, float amount) throws RemoteException, IllegalArgumentException {
-		if ( !brokers.containsKey(brokerId) )
+		if ( !this.poolDAO.getBrokerDAO().containsKey(brokerId) )
 			throw new IllegalArgumentException("Broker with id=" + brokerId + " does not exist");
 
-		Broker broker = this.brokers.get(brokerId);
+		Broker broker = this.poolDAO.getBrokerDAO().getItemById(brokerId);
 		if (amount < 0 && broker.getDisponibelstand() < -amount)
 			throw new IllegalArgumentException("Not enough money");
 		broker.setDisponibelstand(amount);
@@ -739,15 +702,15 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	 * wenn sie das machen, dann heisst es das sie die Aktien zu/von ihrem Konto ueberweisen 
 	 */
 	public void tradingAccount(Integer brokerId, Integer tickerId, Integer anzahl) throws RemoteException, IllegalArgumentException {
-		if ( !brokers.containsKey(brokerId) )
+		if ( !this.poolDAO.getBrokerDAO().containsKey(brokerId) )
 			throw new IllegalArgumentException("Broker with id=" + brokerId + " does not exist");
 
-		Broker broker = this.brokers.get(brokerId);
+		Broker broker = this.poolDAO.getBrokerDAO().getItemById(brokerId);
 		synchronized(broker) {
 			//check, ob aktive Auftrage existieren
 			if (anzahl < 0) {
 				for(Auftrag a : broker.getAuftraegeList().values()) {
-					if ( this.emittents.get( a.getTicker() ).getId() == tickerId )
+					if ( this.poolDAO.getEmittentDAO().getEmittentByTicker( a.getTicker() ).getId() == tickerId )
 						throw new IllegalArgumentException("There are aktive Auftraege with this emittent");
 				}
 			}
@@ -786,15 +749,15 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 		if ( resourceKind == NetworkResource.UDP )
 			throw new IllegalArgumentException("Broker has no UDP");
 		
-		if ( !brokers.containsKey(brokerId) )
+		if ( !this.poolDAO.getBrokerDAO().containsKey(brokerId) )
 			throw new IllegalArgumentException("Broker with id=" + brokerId + " does not exist");
 
 		if (resourceKind == NetworkResource.REST)
-			return brokers.get(brokerId).getNetworkRESTAddress();
+			return this.poolDAO.getBrokerDAO().getItemById(brokerId).getNetworkRESTAddress();
 		if (resourceKind == NetworkResource.SOAP)
-			return brokers.get(brokerId).getNetworkSOAPAddress();
+			return this.poolDAO.getBrokerDAO().getItemById(brokerId).getNetworkSOAPAddress();
 		//if (resourceKind.getNumVal() == NetworkResource.RMI.getNumVal())
-		return brokers.get(brokerId).getNetworkRMIAddress();
+		return this.poolDAO.getBrokerDAO().getItemById(brokerId).getNetworkRMIAddress();
 	}
 
 	
@@ -837,9 +800,9 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	    	byte[] buf = new byte[1024];
 	    	
 	    	do {
+	    	
 				DatagramPacket requestPacket = new DatagramPacket(buf, buf.length);
 				socketUDP.receive(requestPacket);
-				
 				
 				//process Request async
 				new Thread(new java.lang.Runnable() {
@@ -855,11 +818,11 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 				    	processFeedRequest(requestPacket);
 				    }
 				}.init(requestPacket)).start();
-				   
+				  
 				//processFeedRequest(request.getData(), request.getAddress(), request.getPort());
 				
 	    	} while (true);
-	    }   
+	    }  
 	    catch (SocketException e){
 	        System.err.println("Socket: " + e.getMessage());
 	    }
@@ -893,6 +856,8 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	 * Send UDP Feed Message to all Users
 	 */
 	private void sendFeedMsg(FeedMsg msg) {
+    	System.out.println( "send msg = " + msg.getId() );
+
 	    try {
 		    ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		    ObjectOutput out = new ObjectOutputStream(bos);
@@ -903,11 +868,12 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	    		java.util.Map.Entry<Integer, UDPSession> se = it.next();	    	
 	    	
 	    		UDPSession s = se.getValue();
+
 	    		
 	    		//remove old Sessions, wenn they are 20 seconds not active
 	    		java.util.Calendar calendar = java.util.Calendar.getInstance();
 	    		calendar.add(java.util.Calendar.SECOND, 20);
-	    		if ( s.lastConnectionTime.before(calendar.getTime()) ) {
+	    		if ( s.lastConnectionTime.after(calendar.getTime()) ) {
 	    			it.remove();
 	    		}
 	    		else {
@@ -946,11 +912,14 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	 * Send UDP DatagramPacket for UDPSession
 	 */
 	private void sendUDPMsg(UDPSession session, ByteArrayOutputStream bos) {
+    	System.out.println( "sendUDPMsg" );
 	    try {
 	    	DatagramPacket reply = new DatagramPacket(bos.toByteArray(), bos.size(),
 	    			session.address, session.port);
 	    	
 	    	socketUDP.send(reply);
+	    	System.out.println( "reply Addr = " + reply.getAddress().toString() );
+	    	System.out.println( "reply Port = " + reply.getPort() );
 	    }   
 	    catch (SocketException e){
 	        System.err.println("Socket: " + e.getMessage());
@@ -965,6 +934,9 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	 */
 	private void processFeedRequest(DatagramPacket requestPacket) {
 		try {
+            //System.out.println( "requestPacket Addr = " + requestPacket.getAddress().toString() );
+            //System.out.println( "requestPacket Port = " + requestPacket.getPort() );
+
 		    ByteArrayInputStream bis = new ByteArrayInputStream(requestPacket.getData());
 		    ObjectInput in = new ObjectInputStream(bis);
 		    FeedRequest feedRequest = (FeedRequest) in.readObject();
@@ -1025,6 +997,137 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
 	}
 	
 	
+    private static int exec(@SuppressWarnings("rawtypes") Class klass) throws IOException, InterruptedException {
+		String javaHome = System.getProperty("java.home");
+		String javaBin = javaHome +
+		File.separator + "bin" +
+		File.separator + "java";
+		String classpath = System.getProperty("java.class.path");
+		String className = klass.getCanonicalName();
+		
+		ProcessBuilder builder = new ProcessBuilder(
+		javaBin, "-cp", classpath, className);
+		
+		Process process = builder.start();
+		//process.waitFor();
+		return process.exitValue();
+	}
+	
+	//Messaging Stuff
+    private static int ackMode;
+    private static String queueName;
+    static {
+    	queueName = "msgs";
+        ackMode = Session.AUTO_ACKNOWLEDGE;
+    }
+    
+    private String messageBrokerUrl;
+    
+    private Session session;
+    private boolean transacted = false;
+    private MessageProducer replyProducer;
+    private MessageConsumer consumer;
+    private Connection connection;
+    
+    private void startMessaging() {
+        try {
+        	BrokerService broker = new BrokerService();
+            broker.setPersistent(false);
+            broker.setUseJmx(false);
+            broker.addConnector(messageBrokerUrl);
+            broker.start();
+
+            ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(messageBrokerUrl);
+            
+            try {
+                connection = connectionFactory.createConnection();
+                connection.setExceptionListener(this); 
+                connection.start();
+                
+                this.session = connection.createSession(this.transacted, ackMode);
+                Destination queue = this.session.createQueue(queueName);
+     
+                //Setup a message producer to respond to messages from clients, we will get the destination
+                //to send to from the JMSReplyTo header field from a Message
+                this.replyProducer = this.session.createProducer(null);
+                this.replyProducer.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
+     
+                //Set up a consumer to consume messages off of the admin queue
+                consumer = this.session.createConsumer(queue);
+                consumer.setMessageListener(this);
+                
+            } catch (JMSException e) {
+            	e.printStackTrace();
+            }
+            
+        } catch (Exception e) {
+        	e.printStackTrace();
+        }
+    }
+
+    private void stopMessaging() {
+    	try {
+    		this.consumer.close();
+    		this.replyProducer.close();
+    		this.session.close();
+    		this.connection.close();
+    	}
+    	catch (Exception e) {
+            e.printStackTrace();
+    	}
+    }
+    
+    public void onMessage(Message message) {
+        if (!(message instanceof ObjectMessage))
+        	return;
+        
+    	System.out.println("incoming ObjectMessage");
+
+    	try {
+            Auftrag incomingAuftrag = (Auftrag) ((ObjectMessage)message).getObject();
+            int id = incomingAuftrag.getId();
+            
+            if (incomingAuftrag.getStatus() == AuftragStatus.Init) {
+            	try {
+            		id = this.auftragAddNew(incomingAuftrag.getOwnerId(), incomingAuftrag);
+            	}
+            	catch(Exception e) {
+            	}
+            }
+            else if (incomingAuftrag.getStatus() == AuftragStatus.Canceled) {
+            	try {
+            		this.auftragCancel(incomingAuftrag.getOwnerId(), id);
+            	}
+            	catch(Exception e) {
+            	}
+            }
+
+            incomingAuftrag = this.poolDAO.getAuftragDAO().getItemById(id);
+            ObjectMessage response = this.session.createObjectMessage();
+            Auftrag ret = new Auftrag(incomingAuftrag.getId(), incomingAuftrag.getOwnerId(), incomingAuftrag.getKaufen(), incomingAuftrag.getTicker(), incomingAuftrag.getAnzahl(), incomingAuftrag.getBedingung() );
+            ret.setStatus(incomingAuftrag.getStatus());
+            response.setObject( ret );
+ 
+            //Set the correlation ID from the received message to be the correlation id of the response message
+            //this lets the client identify which message this is a response to if it has more than
+            //one outstanding message to the server
+            response.setJMSCorrelationID(message.getJMSCorrelationID());
+
+        	System.out.println("send answer");
+
+            //Send the response to the Destination specified by the JMSReplyTo field of the received message,
+            //this is presumably a temporary queue created by the client
+            this.replyProducer.send(message.getJMSReplyTo(), response);
+        } catch (JMSException e) {
+        	e.printStackTrace();
+        }
+    }
+	
+	public void onException(JMSException e) { 
+		  System.out.println("JMS Exception occurred"); 
+	}
+
+	
 	
 	
 	
@@ -1041,16 +1144,23 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
     	int portRMI = 10001;
     	if (args.length > 1)
     		portRMI = Integer.valueOf(args[1]);
+
+    	//default port RMI
+    	String messageBrokerUrl = "tcp://localhost:61616";
+    	if (args.length > 2)
+    		messageBrokerUrl = args[2];
     	
-    	BoerseServer boerse = new BoerseServer(portUDP);
+    	BoerseServer boerse = new BoerseServer(portUDP, messageBrokerUrl, System.getProperty("user.dir") );
     	   	
     	//initial values
     	try {
-	    	boerse.emittentAddNew( new Emittent("AAPL", "Apple Inc.") );
-	    	boerse.emittentAddNew( new Emittent("RDSA", "Royal Dutch Shell") );
-	    	boerse.brokerAddNew( new Broker(1, 0f, "Daniil Brokers Co.", "localhost:5001", "http://localhost:20001/WebServices/public", "http://localhost:30001/rest/", "123", "Licenze: AA-001") );
-	    	boerse.brokerAddNew( new Broker(2, 0f, "Zvonek Brokers Co.", "localhost:5002", "http://localhost:20002/WebServices/public", "http://localhost:30002/rest/", "456", "Licenze: AA-002") );
-	    	boerse.brokerAddNew( new Broker(3, 0f, "Ayrat Brokers Co.", "localhost:5003", "http://localhost:20003/WebServices/public", "http://localhost:30003/rest/", "012", "Licenze: AA-003") );
+    		if (boerse.poolDAO.getEmittentDAO().getItems().size() == 0) {
+		    	boerse.emittentAddNew( new Emittent("AAPL", "Apple Inc.") );
+		    	boerse.emittentAddNew( new Emittent("RDSA", "Royal Dutch Shell") );
+		    	boerse.brokerAddNew( new Broker("Daniil Brokers Co.", "localhost:5001", "http://localhost:20001/WebServices/public", "http://localhost:30001/rest/", "123", "Licenze: AA-001") );
+		    	boerse.brokerAddNew( new Broker("Zvonek Brokers Co.", "localhost:5002", "http://localhost:20002/WebServices/public", "http://localhost:30002/rest/", "456", "Licenze: AA-002") );
+		    	boerse.brokerAddNew( new Broker("Ayrat Brokers Co.", "localhost:5003", "http://localhost:20003/WebServices/public", "http://localhost:30003/rest/", "012", "Licenze: AA-003") );
+    		}
     	}
     	catch (RemoteException e) {
     		
@@ -1060,6 +1170,8 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
             //System.setSecurityManager(new SecurityManager());
         }
         try {
+        	
+        	//RMI
             Registry registry = LocateRegistry.createRegistry(portRMI);
             
             BoersePublicAdapter publicAdapter = new BoersePublicAdapter(boerse);
@@ -1076,9 +1188,24 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
                     (BoerseClient) UnicastRemoteObject.exportObject(boerse, 0);
             registry.rebind("brokerBoerse", clientStub);
 
+            /*
+            try {
+            	Runtime.getRuntime().exec("notepad.exe");
+            }
+            catch(Exception e) {
+            }
+            */
+            /*
+            try {
+            	exec(SOAPStart.class);
+            }
+            catch(Exception e) {
+            }*/
+            
 //            Registry registry = LocateRegistry.getRegistry();
 //            registry.rebind(AdminObjectName, adminStub);
 
+            /*
             Endpoint endpoint = Endpoint.publish("http://localhost:8080/WebServices/public", new BoersePublicAdapter(boerse));
 
             boolean status = endpoint.isPublished();
@@ -1096,8 +1223,9 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient {
             // destroy the server
             // uncomment when you want to close/destroy it
             // server.destroy();
-
-//          boerse.Open();
+*/
+            
+            boerse.Open();
 
             System.out.println("Die Boerse ist gestartet");
             

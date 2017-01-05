@@ -1,8 +1,5 @@
 package at.ac.univie.dse2016.stream.common;
 
-import java.rmi.RemoteException;
-
-
 public class Broker extends Client {
 
 	private static final long serialVersionUID = 100L;
@@ -29,7 +26,25 @@ public class Broker extends Client {
 	 * Kunden des Brokers
 	 */
 	//protected transient java.util.TreeMap<Integer, Client> clients;
-	
+
+	public Broker(String name, String networkRMIAddress, String networkSOAPAddress, String networkRESTAddress, String phone, String license) {
+		super(-1, -1, 0, name);
+		this.networkRMIAddress = networkRMIAddress;
+		this.networkSOAPAddress = networkSOAPAddress;
+		this.networkRESTAddress = networkRESTAddress;
+		this.phone = phone;
+		this.license = license;
+	}
+
+	public Broker(float kontostand, String name, String networkRMIAddress, String networkSOAPAddress, String networkRESTAddress, String phone, String license) {
+		super(-1, -1, kontostand, name);
+		this.networkRMIAddress = networkRMIAddress;
+		this.networkSOAPAddress = networkSOAPAddress;
+		this.networkRESTAddress = networkRESTAddress;
+		this.phone = phone;
+		this.license = license;
+	}
+
 	public Broker(Integer id, float kontostand, String name, String networkRMIAddress, String networkSOAPAddress, String networkRESTAddress, String phone, String license) {
 		super(id, -1, kontostand, name);
 		this.networkRMIAddress = networkRMIAddress;
