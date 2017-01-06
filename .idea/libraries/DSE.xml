@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="DSE">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/DSE/miglayout15-swing.jar!/" />
+      <root url="jar://$PROJECT_DIR$/DSE/src.zip!/" />
+      <root url="jar://$PROJECT_DIR$/DSE/miglayout-src.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

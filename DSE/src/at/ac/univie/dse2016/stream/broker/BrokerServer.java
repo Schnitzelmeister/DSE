@@ -267,8 +267,8 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 				  System.out.println(key + " => " + value);
 				}
 			*/
-			
-			
+
+
 			if (buy) {
 				
 				//mit Bedingung
@@ -285,6 +285,7 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 					throw new IllegalArgumentException("Illegal Bedingung");
 			}
 			else {
+				java.util.TreeMap<Integer, Integer> clientEmittents = client.getAccountEmittents();
 				if (!clientEmittents.containsKey(tickerId))
 					throw new IllegalArgumentException("Nothing to sell");
 				
@@ -430,7 +431,7 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	 * normaleweise muss es automatisch ausgefuert werden, wenn die Aktien zum Tradingkonto des Clients eingehen
 	 * anzahl kann +/- sein (einzahlen/auszahlen)
 	 * einfachheitshalber koennen die Clienten diese Methode selbst aufrufen
-	 * wenn sie das machen, dann heisst es das sie die Aktien zu/von ihrem Konto ueberweisen 
+	 * wenn sie das machen, dann heisst es das sie die Aktien zu/von ihrem Konto ueberweisen
 	 */
 	public void tradingAccount(Integer clientId, Integer tickerId, Integer anzahl) throws RemoteException, IllegalArgumentException {
 		if ( !this.poolDAO.getClientDAO().containsKey(clientId) )
@@ -445,24 +446,24 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 						throw new IllegalArgumentException("There are aktive Auftraege with this emittent");
 				}
 			}
-			
+
 			java.util.TreeMap<Integer, Integer> clientEmittents = client.getAccountEmittents();
 			if (clientEmittents.containsKey(tickerId)) {
 				if (anzahl < 0 && clientEmittents.get(tickerId) < -anzahl)
 					throw new IllegalArgumentException("Not enough amount of emittent");
-				
+
 				client.setKontostand(tickerId, anzahl);
 				client.setDisponibelstand(tickerId, anzahl);
 			}
 			else {
 				if (anzahl < 0)
 					throw new IllegalArgumentException("Not enough amount of emittent");
-				
+
 				client.setKontostand(tickerId, anzahl);
 				client.setDisponibelstand(tickerId, anzahl);
 			}
 		}
-		
+
 		boerse.tradingAccount(this.brokerId, tickerId, anzahl);
 		this.poolDAO.getClientDAO().speichereItem(client);
 

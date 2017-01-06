@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="miglayout-src">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/../../UNI/3 Semester/DSE/DSE_Milestone3/g2016w_dse_0104/DSE/miglayout15-swing.jar!/" />
+      <root url="jar://$PROJECT_DIR$/../../UNI/3 Semester/DSE/DSE_Milestone3/g2016w_dse_0104/DSE/src.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/../../UNI/3 Semester/DSE/DSE_Milestone3/g2016w_dse_0104/DSE/miglayout-src.zip!/" />
+      <root url="jar://$PROJECT_DIR$/../../UNI/3 Semester/DSE/DSE_Milestone3/g2016w_dse_0104/DSE/src.zip!/src" />
+    </SOURCES>
+  </library>
+</component>
