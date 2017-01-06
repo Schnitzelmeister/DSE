@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/g2016w_dse_0104.iml" filepath="$PROJECT_DIR$/.idea/g2016w_dse_0104.iml" />
+      <module fileurl="file://$PROJECT_DIR$/DSE/DSE.iml" filepath="$PROJECT_DIR$/DSE/DSE.iml" />
     </modules>
   </component>
 </project>
