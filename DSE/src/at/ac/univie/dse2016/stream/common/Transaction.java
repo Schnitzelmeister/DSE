@@ -3,23 +3,25 @@ package at.ac.univie.dse2016.stream.common;
 import java.util.Calendar;
 import java.util.Date;
 
-public class Transaction extends at.ac.univie.dse2016.stream.common.dao.PersistableObject {
+public class Transaction extends at.ac.univie.dse2016.stream.common.dao.PersistableObject implements Comparable<Transaction> {
 
 	private static final long serialVersionUID = 100L;
 
-	public static class DescendingTransactionDateComparator implements java.util.Comparator<Transaction> {
-		
-	   	public int compare(Transaction p1, Transaction p2)
-		{
-			if (p1 == p2 || p1.getDateCommitted().equals(p2.getDateCommitted()))
+    public int compareTo(Transaction p2) {
+		if (this == p2 || this.getDateCommitted().equals(p2.getDateCommitted())) {
+			if (p2.getId().intValue() > this.getId().intValue() )
 				return 0;
-			else if (p2.getDateCommitted().after(p1.getDateCommitted()))
+			else if (p2.getId().intValue() > this.getId().intValue())
 				return 1;
 			else
 				return -1;
 		}
-	}
-		
+		else if (p2.getDateCommitted().after(this.getDateCommitted()))
+			return 1;
+		else
+			return -1;
+    }
+    		
 	protected Integer auftragId;
 	public Integer getAuftragId() { return auftragId; }
 

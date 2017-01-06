@@ -22,6 +22,9 @@ public class FeedMsg implements Externalizable {
 	protected AuftragStatus status;
 	public AuftragStatus getStatus() { return status; }
 
+	protected AuftragStatus status2;
+	public AuftragStatus getStatus2() { return status2; }
+
 	protected Integer counter;
 	public Integer getCounter() { return counter; }
 
@@ -36,6 +39,7 @@ public class FeedMsg implements Externalizable {
 		out.writeInt(status.getNumVal()); 
 		out.writeFloat(price);
 		out.writeInt(id2);
+		out.writeInt(status2.getNumVal());
 	}
 
 	public void readExternal(ObjectInput in) throws IOException, ClassNotFoundException {
@@ -46,16 +50,17 @@ public class FeedMsg implements Externalizable {
 		status = AuftragStatus.values()[in.readInt() - 1];
 		price = in.readFloat();
 		id2 = in.readInt();
+		status2 = AuftragStatus.values()[in.readInt() - 1];
 	}
 
 	public FeedMsg() {
 	}
 	
 	public FeedMsg(Integer counter, Integer id, Integer tickerId, boolean kaufen, Integer anzahl, float price, AuftragStatus status) {
-		this(counter, id, tickerId, kaufen, anzahl, price, status, -1);
+		this(counter, id, tickerId, kaufen, anzahl, price, status, -1, AuftragStatus.Init);
 	}
 
-	public FeedMsg(Integer counter, Integer id, Integer tickerId, boolean kaufen, Integer anzahl, float price, AuftragStatus status, Integer id2) {
+	public FeedMsg(Integer counter, Integer id, Integer tickerId, boolean kaufen, Integer anzahl, float price, AuftragStatus status, Integer id2, AuftragStatus status2) {
 		this.counter = counter;
 		this.id = id * ((kaufen) ? -1 : 1);
 		this.tickerId = tickerId;
@@ -63,5 +68,6 @@ public class FeedMsg implements Externalizable {
 		this.price = price;
 		this.status = status;
 		this.id2 = id2;
+		this.status2 = status2;
 	}
 }
