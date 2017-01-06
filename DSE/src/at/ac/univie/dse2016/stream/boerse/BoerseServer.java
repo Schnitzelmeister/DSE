@@ -280,7 +280,8 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 					throw new IllegalArgumentException("Not enough amount of the Emittent");
 			}
 
-			//generate auftragId
+			//generate auftragId and save auftrag to log
+			auftrag.setStatus(AuftragStatus.Accepted);
 			setToLog(brokerId, auftrag);
 			newAuftragId = auftrag.getId();
 			
@@ -353,11 +354,6 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 									if (!committed)
 										throw new IllegalArgumentException("Not enough money");
 
-									auftrag.setStatus(AuftragStatus.Bearbeitet);
-									
-									//send asynchrone
-									sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, buy, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Bearbeitet));
-									
 									return newAuftragId;
 								}
 								//kein Emittent bei Verkauefer - sollte unmoeglich sein
@@ -367,30 +363,29 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 								//commit ganz
 								else if (anzahl <= a.getAnzahl()) {
 									committed = true;
-									commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), anzahl, true, emittentSection.msgCounter.incrementAndGet(), (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.Accepted);
-									if (a.getAnzahl() == anzahl) {
-
-										a.setStatus(AuftragStatus.Bearbeitet);
-										it.remove();
-									}
-									else {
-										a.setAnzahl(a.getAnzahl() - anzahl);
-									}
-	
-									auftrag.setStatus(AuftragStatus.Bearbeitet);
 									
-									//send asynchrone
-									sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, buy, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Bearbeitet));
+									//commit transaction
+									commitAuftrage(auftrag, broker, (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.Accepted, 
+												a, secondBroker, (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.TeilweiseBearbeitet, 
+												tickerId, a.getBedingung(), anzahl, true, emittentSection.msgCounter.incrementAndGet() 
+											);
+									
+									if (a.getStatus() == AuftragStatus.Bearbeitet)
+										it.remove();
 
 									return newAuftragId;
 								}
 								//commit teilweise
 								else {
 									committed = true;
-									commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), a.getAnzahl(), true, emittentSection.msgCounter.incrementAndGet(), AuftragStatus.Bearbeitet);
+									
+									//commit transaction
 									anzahl -= a.getAnzahl();
-
-									a.setStatus(AuftragStatus.Bearbeitet);
+									commitAuftrage(auftrag, broker, AuftragStatus.TeilweiseBearbeitet, 
+												a, secondBroker, AuftragStatus.Bearbeitet, 
+												tickerId, a.getBedingung(), a.getAnzahl(), true, emittentSection.msgCounter.incrementAndGet() 
+											);
+									
 									it.remove();
 								}
 							}
@@ -409,39 +404,33 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 									//commit ganz
 									else if (anzahl <= a.getAnzahl()) {
 										committed = true;
-										commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), anzahl, true, emittentSection.msgCounter.incrementAndGet(), (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.Accepted);
-										if (a.getAnzahl() == anzahl) {
-											a.setStatus(AuftragStatus.Bearbeitet);
+
+										//commit transaction
+										commitAuftrage(auftrag, broker, AuftragStatus.Bearbeitet, 
+													a, secondBroker, (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.TeilweiseBearbeitet, 
+													tickerId, a.getBedingung(), anzahl, true, emittentSection.msgCounter.incrementAndGet() 
+												);
+										
+										if (a.getStatus() == AuftragStatus.Bearbeitet)
 											it.remove();
-										}
-										else {
-											a.setAnzahl(a.getAnzahl() - anzahl);
-										}
-	
-										auftrag.setStatus(AuftragStatus.Bearbeitet);
-
-										//send asynchrone
-										sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, buy, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Bearbeitet));
-
+										
 										return newAuftragId;
 									}
 									//commit teilweise
 									else {
 										committed = true;
-										commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), a.getAnzahl(), true, emittentSection.msgCounter.incrementAndGet(), AuftragStatus.Bearbeitet);
+										//commit transaction
 										anzahl -= a.getAnzahl();
+										commitAuftrage(auftrag, broker, AuftragStatus.TeilweiseBearbeitet, 
+													a, secondBroker, AuftragStatus.Bearbeitet, 
+													tickerId, a.getBedingung(), a.getAnzahl(), true, emittentSection.msgCounter.incrementAndGet() 
+												);
 										
-										a.setStatus(AuftragStatus.Bearbeitet);
 										it.remove();
-
 									}
 								}
 								//bedingung nicht passt - add to Section, was bleibt
 								else {
-									auftrag.setAnzahl(anzahl);
-									
-									broker.setDisponibelstand(-bedingung * anzahl);
-
 									if (!emittentSection.buy.containsKey(bedingungInteger))
 										emittentSection.buy.put(bedingungInteger, new java.util.TreeSet<Auftrag>());
 									emittentSection.buy.get(bedingungInteger).add(auftrag);
@@ -469,28 +458,28 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 								//commit ganz
 								else if (anzahl <= a.getAnzahl()) {
 									committed = true;
-									commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), anzahl, false, emittentSection.msgCounter.incrementAndGet(), (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.Accepted);
-									if (a.getAnzahl() == anzahl) {
-										a.setStatus(AuftragStatus.Bearbeitet);
-										it.remove();
-									}
-									else {
-										a.setAnzahl(a.getAnzahl() - anzahl);
-									}
-	
-									auftrag.setStatus(AuftragStatus.Bearbeitet);
 									
-									//send asynchrone
-									sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, buy, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Bearbeitet));
+									//commit transaction
+									commitAuftrage(auftrag, broker, AuftragStatus.Bearbeitet, 
+												a, secondBroker, (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.TeilweiseBearbeitet, 
+												tickerId, a.getBedingung(), anzahl, false, emittentSection.msgCounter.incrementAndGet() 
+											);
+									
+									if (a.getStatus() == AuftragStatus.Bearbeitet)
+										it.remove();
 
 									return newAuftragId;
 								}
 								//commit teilweise
 								else {
 									committed = true;
-									commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), a.getAnzahl(), false, emittentSection.msgCounter.incrementAndGet(), AuftragStatus.Bearbeitet);
+									//commit transaction
 									anzahl -= a.getAnzahl();
-									a.setStatus(AuftragStatus.Bearbeitet);
+									commitAuftrage(auftrag, broker, AuftragStatus.TeilweiseBearbeitet, 
+												a, secondBroker, AuftragStatus.Bearbeitet, 
+												tickerId, a.getBedingung(), a.getAnzahl(), true, emittentSection.msgCounter.incrementAndGet() 
+											);
+									
 									it.remove();
 								}
 							}
@@ -510,37 +499,33 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 									//commit ganz
 									else if (anzahl <= a.getAnzahl()) {
 										committed = true;
-										commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), anzahl, false, emittentSection.msgCounter.incrementAndGet(), (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.Accepted);
-										if (a.getAnzahl() == anzahl) {
-											a.setStatus(AuftragStatus.Bearbeitet);
+										
+										//commit transaction
+										commitAuftrage(auftrag, broker, AuftragStatus.Bearbeitet, 
+													a, secondBroker, (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.TeilweiseBearbeitet, 
+													tickerId, a.getBedingung(), anzahl, false, emittentSection.msgCounter.incrementAndGet() 
+												);
+										
+										if (a.getStatus() == AuftragStatus.Bearbeitet)
 											it.remove();
-										}
-										else {
-											a.setAnzahl(a.getAnzahl() - anzahl);
-										}
-	
-										auftrag.setStatus(AuftragStatus.Bearbeitet);
-										
-										//send asynchrone
-										sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, buy, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Bearbeitet));
-										
+
 										return newAuftragId;
 									}
 									//commit teilweise
 									else {
 										committed = true;
-										commitAuftrage(auftrag, broker, a, secondBroker, tickerId, a.getBedingung(), a.getAnzahl(), false, emittentSection.msgCounter.incrementAndGet(), AuftragStatus.Bearbeitet);
+										//commit transaction
 										anzahl -= a.getAnzahl();
-										a.setStatus(AuftragStatus.Bearbeitet);
+										commitAuftrage(auftrag, broker, AuftragStatus.TeilweiseBearbeitet, 
+													a, secondBroker, AuftragStatus.Bearbeitet, 
+													tickerId, a.getBedingung(), a.getAnzahl(), true, emittentSection.msgCounter.incrementAndGet() 
+												);
+										
 										it.remove();
 									}
 								}
 								//bedingung nicht passt - add to Section, was bleibt
 								else {
-									auftrag.setAnzahl(anzahl);
-									
-									broker.setDisponibelstand(tickerId, -anzahl);
-
 									if (!emittentSection.sell.containsKey(bedingungInteger))
 										emittentSection.sell.put(bedingungInteger, new java.util.TreeSet<Auftrag>());
 				
@@ -567,17 +552,13 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 							emittentSection.buy.put(bedingungInteger, new java.util.TreeSet<Auftrag>());
 	
 						emittentSection.buy.get(bedingungInteger).add(auftrag);
-						
-						broker.setDisponibelstand(-bedingung * anzahl);
-		    		}
+					}
 		    		else {
 						if (!emittentSection.sell.containsKey(bedingungInteger))
 							emittentSection.sell.put(bedingungInteger, new java.util.TreeSet<Auftrag>());
 	
 						emittentSection.sell.get(bedingungInteger).add(auftrag);
-						
-						broker.setDisponibelstand(tickerId, -anzahl);
-		    		}
+					}
 		    		
 					//send asynchrone
 					sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, auftrag.getKaufen(), anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Accepted));
@@ -587,17 +568,17 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 						throw new IllegalArgumentException("No Orders");
 		    		if (!committed)
 						throw new IllegalArgumentException("Not enough money");
-
-					auftrag.setStatus(AuftragStatus.TeilweiseBearbeitet);
 					return newAuftragId;
 		    	}
-		    		
 			}
 		}
-		return auftrag.getId();
+		return newAuftragId;
 	}
 
-	private void commitAuftrage(Auftrag auftrag1, Broker broker1, Auftrag auftrag2, Broker broker2, int tickerId, float preis, int anzahl, boolean buy, int msgCounter, AuftragStatus status) {
+	private void commitAuftrage(Auftrag auftrag1, Broker broker1, AuftragStatus status1, Auftrag auftrag2, Broker broker2, AuftragStatus status2, int tickerId, float preis, int anzahl, boolean buy, int msgCounter) {
+		
+		System.out.println( "transaction: " + auftrag1.getId() + " and  " + auftrag2.getId() + ", preis: " + preis + ", anzahl: " + anzahl + ", " + status1 + " and " + status2 );
+		
 		float sum = preis * anzahl;
 		if (buy) {
 			broker1.setKontostand(-sum);
@@ -619,9 +600,21 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 			broker2.setKontostand(tickerId, anzahl);
 		}
 
+		if (status1 == AuftragStatus.TeilweiseBearbeitet) {
+			auftrag1.setAnzahl(auftrag1.getAnzahl() - anzahl);
+		}
+
+		if (status2 == AuftragStatus.TeilweiseBearbeitet) {
+			auftrag2.setAnzahl(auftrag2.getAnzahl() - anzahl);
+		}
+
+		auftrag1.setStatus(status1);
+		auftrag2.setStatus(status2);
+
 		//send asynchrone
-		sendFeedMsg(new FeedMsg(msgCounter, auftrag2.getId(), tickerId, buy, anzahl, preis, status, auftrag1.getId()));
-		
+		sendFeedMsg(new FeedMsg(msgCounter, auftrag2.getId(), tickerId, buy, anzahl, preis, status1, auftrag1.getId(), status2));
+
+		//save transactions to log
 		this.poolDAO.getTransactionDAO().speichereItem(new Transaction(auftrag1.getId(), auftrag2.getId(), anzahl, preis));
 	}
 	
@@ -931,8 +924,8 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 	    			session.address, session.port);
 	    	
 	    	socketUDP.send(reply);
-	    	System.out.println( "reply Addr = " + reply.getAddress().toString() );
-	    	System.out.println( "reply Port = " + reply.getPort() );
+	    	//System.out.println( "reply Addr = " + reply.getAddress().toString() );
+	    	//System.out.println( "reply Port = " + reply.getPort() );
 	    }   
 	    catch (SocketException e){
 	        System.err.println("Socket: " + e.getMessage());

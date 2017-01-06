@@ -257,9 +257,9 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 		Client client = this.poolDAO.getClientDAO().getItemById(clientId);
 		//lock Client
 		synchronized(client) {
-			/*
-			java.util.TreeMap<Integer, Integer> clientEmittents = client.getDisponibleAccountEmittents();
 			
+			java.util.TreeMap<Integer, Integer> clientEmittents = client.getDisponibleAccountEmittents();
+			/*
 			for(java.util.Map.Entry<Integer,Integer> entry : clientEmittents.entrySet()) {
 				Integer key = entry.getKey();
 				  Integer value = entry.getValue();
@@ -267,8 +267,8 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 				  System.out.println(key + " => " + value);
 				}
 			*/
-
-
+			
+			
 			if (buy) {
 				
 				//mit Bedingung
@@ -285,7 +285,6 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 					throw new IllegalArgumentException("Illegal Bedingung");
 			}
 			else {
-				java.util.TreeMap<Integer, Integer> clientEmittents = client.getAccountEmittents();
 				if (!clientEmittents.containsKey(tickerId))
 					throw new IllegalArgumentException("Nothing to sell");
 				
@@ -431,7 +430,7 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	 * normaleweise muss es automatisch ausgefuert werden, wenn die Aktien zum Tradingkonto des Clients eingehen
 	 * anzahl kann +/- sein (einzahlen/auszahlen)
 	 * einfachheitshalber koennen die Clienten diese Methode selbst aufrufen
-	 * wenn sie das machen, dann heisst es das sie die Aktien zu/von ihrem Konto ueberweisen
+	 * wenn sie das machen, dann heisst es das sie die Aktien zu/von ihrem Konto ueberweisen 
 	 */
 	public void tradingAccount(Integer clientId, Integer tickerId, Integer anzahl) throws RemoteException, IllegalArgumentException {
 		if ( !this.poolDAO.getClientDAO().containsKey(clientId) )
@@ -446,24 +445,24 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 						throw new IllegalArgumentException("There are aktive Auftraege with this emittent");
 				}
 			}
-
+			
 			java.util.TreeMap<Integer, Integer> clientEmittents = client.getAccountEmittents();
 			if (clientEmittents.containsKey(tickerId)) {
 				if (anzahl < 0 && clientEmittents.get(tickerId) < -anzahl)
 					throw new IllegalArgumentException("Not enough amount of emittent");
-
+				
 				client.setKontostand(tickerId, anzahl);
 				client.setDisponibelstand(tickerId, anzahl);
 			}
 			else {
 				if (anzahl < 0)
 					throw new IllegalArgumentException("Not enough amount of emittent");
-
+				
 				client.setKontostand(tickerId, anzahl);
 				client.setDisponibelstand(tickerId, anzahl);
 			}
 		}
-
+		
 		boerse.tradingAccount(this.brokerId, tickerId, anzahl);
 		this.poolDAO.getClientDAO().speichereItem(client);
 
@@ -579,28 +578,44 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 		//Fehlererkennung
 		if (this.udpCounters.get(feedMsg.getTickerId()) != -1 && feedMsg.getCounter() == -1) {
 
+			System.out.println( "Fehlererkennung!!!" );
+
 			//Fehler - mach etwas, vielleicht kan man einfach boerse.getState aufrufen
 			if (feedMsg.getCounter() != this.udpCounters.get(feedMsg.getTickerId()) + 1) {
 				//updateStatus();
 			}
 		}
 		
+		processFeedMsgAuftrag(feedMsg, true);
+		processFeedMsgAuftrag(feedMsg, false);
+	}
+	
+	private void processFeedMsgAuftrag(FeedMsg feedMsg, boolean id2) {
+
+		int id;
+		AuftragStatus status;
+		if (id2) {
+			id = feedMsg.getId2();
+			status = feedMsg.getStatus2();
+		}
+		else {
+			id = feedMsg.getId();
+			status = feedMsg.getStatus();
+		}
+		
 		//search if this Auftrag Data is our Client Auftrag 
-		if (this.auftraege.containsKey(feedMsg.getId())) {
-			Auftrag clientAuftrag = this.auftraege.get( feedMsg.getId() );
+		if (this.auftraege.containsKey(id)) {
+			Auftrag clientAuftrag = this.auftraege.get( id );
 			Client client = this.poolDAO.getClientDAO().getItemById(clientAuftrag.getOwnerId());
 			
 			synchronized(client) {
-				if (feedMsg.getStatus() == AuftragStatus.Canceled) {
+				if (status == AuftragStatus.Canceled) {
 					if (clientAuftrag.getKaufen())
 						client.setDisponibelstand(clientAuftrag.getBedingung() * clientAuftrag.getAnzahl());
-					
-					
-	
-					clientAuftrag.setStatus(AuftragStatus.Canceled);
-					setToLog(clientAuftrag);
+					else
+						client.setDisponibelstand( this.emittents.get( clientAuftrag.getTicker() ).getId(), clientAuftrag.getAnzahl());
 				}
-				else if (feedMsg.getStatus() == AuftragStatus.Bearbeitet) {
+				else if (status == AuftragStatus.Bearbeitet || status == AuftragStatus.TeilweiseBearbeitet) {
 					if (clientAuftrag.getKaufen()) {
 						client.setKontostand(-feedMsg.getPrice() * feedMsg.getAnzahl());
 						
@@ -612,26 +627,17 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 					else {
 						client.setKontostand(feedMsg.getPrice() * feedMsg.getAnzahl());
 						client.getAccountEmittents().put(feedMsg.getTickerId(), client.getAccountEmittents().get(feedMsg.getTickerId()) - feedMsg.getAnzahl());
-					}
-	
-					clientAuftrag.setStatus(AuftragStatus.Canceled);
-					setToLog(clientAuftrag);
-				
+					}				
 				}
-				else if (feedMsg.getStatus() == AuftragStatus.TeilweiseBearbeitet) {
-					
-				}
-				else if (feedMsg.getStatus() == AuftragStatus.Accepted) {
-					
-				}
-				else
+				else if (status != AuftragStatus.Accepted)
 					throw new IllegalArgumentException("BROKER ERROR - impossible!!!");
-
+				
+				clientAuftrag.setStatus(status);
+				setToLog(clientAuftrag);
 			}
 		}
-		
-		feedMsg.getId2();
 	}
+
 	
 	
 	private void sendUDPrequest() {
