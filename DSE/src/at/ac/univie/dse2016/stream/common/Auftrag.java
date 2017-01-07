@@ -3,33 +3,34 @@ package at.ac.univie.dse2016.stream.common;
 import javax.xml.bind.annotation.*;
 
 @XmlRootElement
+@XmlAccessorType(XmlAccessType.FIELD)
 public class Auftrag extends at.ac.univie.dse2016.stream.common.dao.PersistableObject implements Comparable<Auftrag>  {
 	
 	private static final long serialVersionUID = 100L;
 		
-	@XmlElement
+	@XmlAttribute
 	protected boolean kaufen;
 	public boolean getKaufen() { return kaufen; }
 	
-	@XmlElement
+	@XmlAttribute
 	protected String ticker;
 	public String getTicker() { return ticker; }
 	
-	@XmlElement
+	@XmlAttribute
 	protected Integer anzahl;
 	public Integer getAnzahl() { return anzahl; }
 	public void setAnzahl(Integer anzahl) { this.anzahl = anzahl; }
 	
-	@XmlElement
+	@XmlAttribute
 	protected float bedingung;
 	public float getBedingung() { return bedingung; }
 	
-	@XmlElement
+	@XmlAttribute
 	protected AuftragStatus status;
 	public AuftragStatus getStatus() { return status; }
 	public void setStatus(AuftragStatus status) { this.status = status; }
 
-	@XmlElement	
+	@XmlAttribute
 	protected Integer ownerId;
 	//BrokerId oder ClientId
 	public Integer getOwnerId() { return ownerId; }
@@ -58,6 +59,8 @@ public class Auftrag extends at.ac.univie.dse2016.stream.common.dao.PersistableO
 		this.bedingung = bedingung;
 		this.status = AuftragStatus.Init;
 	}
+	
+	public Auftrag() {}
 	
 	public int compareTo(Auftrag compareAuftrag) {
 		//ascending order

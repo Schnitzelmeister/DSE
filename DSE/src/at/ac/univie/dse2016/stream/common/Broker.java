@@ -54,6 +54,8 @@ public class Broker extends Client {
 		this.license = license;
 	}
 	
+	public Broker() {}
+	
 	public String toString() { 
 	    return this.name + " - " + this.networkRMIAddress;
 	} 

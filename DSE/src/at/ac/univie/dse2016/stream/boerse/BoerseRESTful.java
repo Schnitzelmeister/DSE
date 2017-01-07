@@ -17,6 +17,7 @@ import javax.jms.MessageConsumer;
 import javax.jms.MessageProducer;
 import javax.jms.ObjectMessage;
 import javax.jms.Session;
+import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
@@ -50,6 +51,8 @@ public class BoerseRESTful implements ExceptionListener {
 		
         //Start Messaging
         ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(messageBrokerUrl);
+        connectionFactory.setTrustAllPackages(true);
+
         Connection connection;
         try {
             connection = connectionFactory.createConnection();
@@ -264,7 +267,11 @@ public class BoerseRESTful implements ExceptionListener {
 	@POST
     @Path("/add_new_auftrag")
 	@Produces(MediaType.TEXT_PLAIN)
-	public String emittentAddNew(@FormParam("owner") Integer brokerId, @FormParam("auftrag") Auftrag auftrag) throws RemoteException, IllegalArgumentException {
+	@Consumes(MediaType.APPLICATION_JSON)
+	public String auftragAddNew(@FormParam("owner") Integer brokerId, @FormParam("auftrag") Auftrag auftrag) throws RemoteException, IllegalArgumentException {
+    	System.out.println("REST incoming ObjectMessage " + auftrag.getStatus());
+    	System.out.println(auftrag.getBedingung() + " " + auftrag.getTicker()+ " " + auftrag.getAnzahl()+ " " + auftrag.getId()+ " " + auftrag.getOwnerId()+ " " + auftrag.getKaufen());
+		
 		StringBuilder sb = new StringBuilder();
 		try {
 			sb.append( "ok - auftragId=" + _auftragAddNew(brokerId, auftrag).toString() );

@@ -20,13 +20,19 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import at.ac.univie.dse2016.stream.common.*;
+import javax.xml.namespace.QName;
+import javax.xml.ws.Service;
+import javax.xml.ws.soap.SOAPBinding;
 
 import javax.xml.ws.Endpoint;
 
 public class BrokerServer implements BrokerAdmin, BrokerClient {
 	
-	public BrokerServer(int brokerId, String remoteHostBoerse, int remotePortUDPBoerse, int remotePortRMIBoerse, int localPortRMIBroker
-			, String localSOAPHostBroker, String localRESTHostBroker, String path) {
+	int tmpSentMode = 0;	//0 - RANDOM, 1 - SOAP, 2 - REST, 3 - RMI
+
+	
+	public BrokerServer(int brokerId, String remoteHostBoerse, int remotePortUDPBoerse, int remotePortRMIBoerse, int localPortRMIBroker,
+				String remoteSOAPHost, String remoteRESTHost, String localSOAPHostBroker, String localRESTHostBroker, String path) {
 		this.brokerId = brokerId;
 		this.remoteHostBoerse = remoteHostBoerse;
 		this.remotePortUDPBoerse = remotePortUDPBoerse;
@@ -34,6 +40,8 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 		this.localPortRMIBroker = localPortRMIBroker;
 		this.localSOAPHostBroker = localSOAPHostBroker;
 		this.localRESTHostBroker = localRESTHostBroker;
+		this.remoteSOAPHost = remoteSOAPHost;
+		this.remoteRESTHost = remoteRESTHost;
 		
 		//init DAO
 		this.poolDAO = new PoolDAO( path );
@@ -46,31 +54,43 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 		
         try {
         	
-        	//get Boerse object
+        	//get RMI-Boerse object
             Registry registryBoerse = LocateRegistry.getRegistry(this.remoteHostBoerse, this.remotePortRMIBoerse);
-            boerse = (BoerseClient) registryBoerse.lookup("brokerBoerse");
+            this.boerse = (BoerseClient) registryBoerse.lookup("brokerBoerse");
 
             //get aktual Emittents
-            for (Emittent emittent : boerse.getEmittentsList())
+            for (Emittent emittent : this.boerse.getEmittentsList())
             	emittents.put(emittent.getTicker(), emittent);
             
             //get port from Boerse Settings
     		if (localPortRMIBroker == -1)
     		{
-                String host = boerse.getBrokerNetworkAddress(brokerId, NetworkResource.RMI);
+                String host = this.boerse.getBrokerNetworkAddress(brokerId, NetworkResource.RMI);
                 String[] ar = host.split(":");
                 this.localPortRMIBroker = Integer.valueOf(ar[1]);
     		}
 
             //get SOAPHostBroker from Boerse Settings
     		if (localSOAPHostBroker == null)
-    			this.localSOAPHostBroker = boerse.getBrokerNetworkAddress(brokerId, NetworkResource.SOAP);
+    			this.localSOAPHostBroker = this.boerse.getBrokerNetworkAddress(brokerId, NetworkResource.SOAP);
 
             //get RESTHostBroker from Boerse Settings
     		if (localRESTHostBroker == null)
-    			this.localRESTHostBroker = boerse.getBrokerNetworkAddress(brokerId, NetworkResource.REST);
+    			this.localRESTHostBroker = this.boerse.getBrokerNetworkAddress(brokerId, NetworkResource.REST);
 
     		
+            //Init SOAP
+            QName serviceName = new QName("http://boerse.com/", "BoersePublic");
+            QName portName = new QName("http://boerse.com/", "WebServices/public");
+
+            Service service = Service.create(serviceName);
+            service.addPort(portName, SOAPBinding.SOAP11HTTP_BINDING, this.remoteSOAPHost); 
+            this.clientSOAPBoerse = service.getPort(portName, BoerseClient.class);
+            
+            //Init REST
+            this.clientRESTBoerse = org.apache.cxf.jaxrs.client.WebClient.create(this.remoteRESTHost,  java.util.Collections.singletonList(new com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider() ));
+            
+            
             //publish Broker objects RMI
             Registry registry = LocateRegistry.createRegistry(this.localPortRMIBroker);
             BrokerAdminAdapter adminAdapter = new BrokerAdminAdapter(this);
@@ -115,6 +135,8 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	 * Broker Id
 	 */
 	private Integer brokerId;
+	private Integer sessionId = -1;
+	
 	
 	/**
 	 * DAO Objects
@@ -130,7 +152,11 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	private Integer remotePortUDPBoerse;
 	private Integer remotePortRMIBoerse;
 	private Integer localPortRMIBroker;
+	private String remoteSOAPHost;
+	private String remoteRESTHost;
 	private BoerseClient boerse;
+	private BoerseClient clientSOAPBoerse;
+	private org.apache.cxf.jaxrs.client.WebClient clientRESTBoerse;
 	
 	
 	/**
@@ -257,18 +283,8 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 		Client client = this.poolDAO.getClientDAO().getItemById(clientId);
 		//lock Client
 		synchronized(client) {
-			
 			java.util.TreeMap<Integer, Integer> clientEmittents = client.getDisponibleAccountEmittents();
-			/*
-			for(java.util.Map.Entry<Integer,Integer> entry : clientEmittents.entrySet()) {
-				Integer key = entry.getKey();
-				  Integer value = entry.getValue();
 
-				  System.out.println(key + " => " + value);
-				}
-			*/
-			
-			
 			if (buy) {
 				
 				//mit Bedingung
@@ -295,11 +311,45 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 		
 		try {
 			Auftrag sent = new Auftrag(-1, this.brokerId, auftrag.getKaufen(), auftrag.getTicker(), auftrag.getAnzahl(), auftrag.getBedingung());
-			int ret = boerse.auftragAddNew(this.brokerId, sent);
-			if (buy)
-				client.setDisponibelstand(-bedingung * anzahl);
-			else
-				client.getDisponibleAccountEmittents().put(tickerId, client.getDisponibleAccountEmittents().get(tickerId) - anzahl);
+			
+			int ret = -1;
+			float rndVal = java.util.concurrent.ThreadLocalRandom.current().nextFloat();
+			if (tmpSentMode != 0)
+				rndVal = tmpSentMode / 3.0f;
+			
+			//SOAP call
+			if (rndVal <= 1.0f/3.0f) {
+				ret = this.clientSOAPBoerse.auftragAddNew(this.brokerId, sent);
+				System.out.println( "SOAP added new auftrag with id = " + ret );
+			}
+			//REST call
+			else if (rndVal <= 2.0f/3.0f) {
+				String body = "";
+				
+				
+				this.clientRESTBoerse.path("add_new_auftrag").accept("text/plain");
+				String returnText = this.clientRESTBoerse.post(body, String.class);
+				if (returnText.startsWith("ok - auftragId=")) {
+					ret = Integer.valueOf(returnText.substring(15, returnText.length() - 1));
+				}
+				else {
+					throw new IllegalArgumentException(returnText);
+				}
+				
+				System.out.println( "REST added new auftrag with id = " + ret );
+			}
+			//RMI call
+			else {
+				ret = this.boerse.auftragAddNew(this.brokerId, sent);
+				System.out.println( "RMI added new auftrag with id = " + ret );
+			}
+
+			if (bedingung > 0) {
+				if (buy)
+					client.setDisponibelstand(-bedingung * anzahl);
+				else
+					client.getDisponibleAccountEmittents().put(tickerId, client.getDisponibleAccountEmittents().get(tickerId) - anzahl);
+			}
 			
 			auftrag.setId(ret);
 			auftrag.setStatus(AuftragStatus.Accepted);
@@ -331,7 +381,38 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 
 		int tickerId = this.emittents.get( auftrag.getTicker() ).getId();
 		try {
+			
+			float rndVal = java.util.concurrent.ThreadLocalRandom.current().nextFloat();
+			if (tmpSentMode != 0)
+				rndVal = tmpSentMode / 3.0f;
+			
+			//SOAP call
+			if (rndVal <= 1.0f/3.0f) {
+				this.clientSOAPBoerse.auftragCancel(this.brokerId, auftragId);
+				System.out.println( "SOAP cancel auftrag with id = " + auftragId );
+			}
+			//REST call
+			else if (rndVal <= 2.0f/3.0f) {
+				String body = "";
+				
+				this.clientRESTBoerse.path("auftrag").path(auftragId).path("cancel").accept("text/plain");
+				String returnText = this.clientRESTBoerse.post(body, String.class);
+				if (!returnText.startsWith("ok")) {
+					throw new IllegalArgumentException(returnText);
+				}
+				
+				System.out.println( "REST cancel auftrag with id = " + auftragId  );
+			}
+			//RMI call
+			else {
+				boerse.auftragCancel(this.brokerId, auftragId);
+				System.out.println( "RMI cancel auftrag with id = " + auftragId );
+			}
+
+			
+			
 			boerse.auftragCancel(this.brokerId, auftragId);
+			
 			if (auftrag.getKaufen())
 				client.setDisponibelstand(auftrag.getBedingung() * auftrag.getAnzahl());
 			else
@@ -534,7 +615,7 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			}, 0, 5, TimeUnit.SECONDS);
 		}
 		catch (Exception e) {
-			
+			e.printStackTrace();
 		}
 	}
 
@@ -545,12 +626,13 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	    	do {
 				DatagramPacket requestPacket = new DatagramPacket(buf, buf.length);
 				socketUDP.receive(requestPacket);
-				
+	
 			    ByteArrayInputStream bis = new ByteArrayInputStream(requestPacket.getData());
 			    ObjectInput in = new ObjectInputStream(bis);
 			    byte len = in.readByte();
 			    for (byte i = 0; i < len; ++i) {
-			    	processFeedMsg((FeedMsg) in.readObject());
+					FeedMsg feed = (FeedMsg) in.readObject();
+			    	processFeedMsg(feed);
 			    }
 			    in.close();
 			    bis.close();
@@ -559,35 +641,53 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	    }   
 	    catch (SocketException e){
 	        System.err.println("Socket: " + e.getMessage());
+	        e.printStackTrace();
 	    }
 	    catch (IOException e){
 	    	System.err.println("IO: " + e.getMessage());
+	    	e.printStackTrace();
 	    }
 	    catch (ClassNotFoundException e){
 	    	System.err.println("IO: " + e.getMessage());
+	    	e.printStackTrace();
 	    }
-	    /*	    catch (Exception e){
+	    catch (Exception e){
 	    	System.err.println("Exception: " + e.getMessage());
-	    }*/
+	    	e.printStackTrace();
+	    }
 	}
 	
 	private void processFeedMsg(FeedMsg feedMsg) {
-		
-		System.out.println( "get feed = " + feedMsg.getId() + " " + feedMsg.getAnzahl() );
+		System.out.println( "get feed = " + feedMsg.getCounter() + " " + feedMsg.getAnzahl() + " " + feedMsg.getId()  + " " + feedMsg.getId2() );
+
+		if (feedMsg.getCounter() == -1) {
+			if (this.sessionId < feedMsg.getId())
+				this.sessionId = feedMsg.getId();
+			
+			//start preise kommen
+			return;
+		}
 		
 		//Fehlererkennung
-		if (this.udpCounters.get(feedMsg.getTickerId()) != -1 && feedMsg.getCounter() == -1) {
+		if (this.udpCounters.get(feedMsg.getTickerId()) != -1) {
 
-			System.out.println( "Fehlererkennung!!!" );
-
+			//same packet
+			if ( this.udpCounters.get(feedMsg.getTickerId()) >= feedMsg.getCounter() )
+				return;
+							
 			//Fehler - mach etwas, vielleicht kan man einfach boerse.getState aufrufen
 			if (feedMsg.getCounter() != this.udpCounters.get(feedMsg.getTickerId()) + 1) {
+				System.out.println( "Fehlererkennung!!!" );
 				//updateStatus();
 			}
 		}
 		
-		processFeedMsgAuftrag(feedMsg, true);
-		processFeedMsgAuftrag(feedMsg, false);
+		this.udpCounters.put(feedMsg.getTickerId(), feedMsg.getCounter());
+		
+		if (feedMsg.getId() != -1)
+			processFeedMsgAuftrag(feedMsg, false);
+		if (feedMsg.getId2() != -1)
+			processFeedMsgAuftrag(feedMsg, true);
 	}
 	
 	private void processFeedMsgAuftrag(FeedMsg feedMsg, boolean id2) {
@@ -603,33 +703,50 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			status = feedMsg.getStatus();
 		}
 		
+		//System.out.println( "processFeedMsg Auftrag , auftragId= " + id + ", status= " + status + " " + feedMsg.getId2() );
+
+		
 		//search if this Auftrag Data is our Client Auftrag 
 		if (this.auftraege.containsKey(id)) {
 			Auftrag clientAuftrag = this.auftraege.get( id );
 			Client client = this.poolDAO.getClientDAO().getItemById(clientAuftrag.getOwnerId());
-			
+			//System.out.println( "processFeedMsg Auftrag , clientAuftrag.getOwnerId() = " + clientAuftrag.getOwnerId() + ", client= " + client.getName() );
+
 			synchronized(client) {
 				if (status == AuftragStatus.Canceled) {
-					if (clientAuftrag.getKaufen())
-						client.setDisponibelstand(clientAuftrag.getBedingung() * clientAuftrag.getAnzahl());
-					else
-						client.setDisponibelstand( this.emittents.get( clientAuftrag.getTicker() ).getId(), clientAuftrag.getAnzahl());
+					if (clientAuftrag.getBedingung() > 0) {
+						if (clientAuftrag.getKaufen())
+							client.setDisponibelstand(clientAuftrag.getBedingung() * clientAuftrag.getAnzahl());
+						else
+							client.setDisponibelstand( feedMsg.getTickerId(), clientAuftrag.getAnzahl());
+					}
 				}
 				else if (status == AuftragStatus.Bearbeitet || status == AuftragStatus.TeilweiseBearbeitet) {
 					if (clientAuftrag.getKaufen()) {
 						client.setKontostand(-feedMsg.getPrice() * feedMsg.getAnzahl());
+						client.setKontostand(feedMsg.getTickerId(), feedMsg.getAnzahl());
 						
-						if (client.getAccountEmittents().containsKey(feedMsg.getTickerId()))
-							client.getAccountEmittents().put(feedMsg.getTickerId(), client.getAccountEmittents().get(feedMsg.getTickerId()) + feedMsg.getAnzahl());
-						else
-							client.getAccountEmittents().put(feedMsg.getTickerId(), feedMsg.getAnzahl());
+						if (!id2 && clientAuftrag.getBedingung() <= 0) {
+							client.setDisponibelstand(-feedMsg.getPrice() * feedMsg.getAnzahl());
+						}
+						client.setDisponibelstand(feedMsg.getTickerId(), feedMsg.getAnzahl());
 					}
 					else {
 						client.setKontostand(feedMsg.getPrice() * feedMsg.getAnzahl());
-						client.getAccountEmittents().put(feedMsg.getTickerId(), client.getAccountEmittents().get(feedMsg.getTickerId()) - feedMsg.getAnzahl());
-					}				
+						client.setKontostand(feedMsg.getTickerId(), -feedMsg.getAnzahl());
+						
+						System.out.println( "processFeedMsg Auftrag , clientAuftrag.getBedingung() = " + clientAuftrag.getBedingung() + ", id2= " + id2 );
+
+						client.setDisponibelstand(feedMsg.getPrice() * feedMsg.getAnzahl());
+						if (!id2 && clientAuftrag.getBedingung() <= 0) {
+							client.setDisponibelstand(feedMsg.getTickerId(), -feedMsg.getAnzahl());
+						}
+					}
 				}
-				else if (status != AuftragStatus.Accepted)
+				else if (status == AuftragStatus.Accepted) {
+					clientAuftrag.setAnzahl( feedMsg.getAnzahl() );
+				}
+				else
 					throw new IllegalArgumentException("BROKER ERROR - impossible!!!");
 				
 				clientAuftrag.setStatus(status);
@@ -645,7 +762,7 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	    try {
 		    ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		    ObjectOutput out = new ObjectOutputStream(bos);
-	    	out.writeObject(new FeedRequest(this.udpEmittentIds));
+	    	out.writeObject(new FeedRequest(this.sessionId, this.udpEmittentIds));
 	    	
 			DatagramPacket requestPacket = new DatagramPacket(bos.toByteArray(), bos.size(), InetAddress.getByName(this.remoteHostBoerse), this.remotePortUDPBoerse);
 			socketUDP.send(requestPacket);
@@ -677,6 +794,9 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 		execUDP = null;
 	}
 	
+	
+
+	
 	/**
 	 * @param args
 	 */
@@ -687,7 +807,7 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
         }
 
 		if (args.length == 0)
-			throw new IllegalArgumentException("arguments: brokerId {remoteHostBoerse remotePortUDPBoerse remotePortRMIBoerse localPortRMIBroker}");
+			throw new IllegalArgumentException("arguments: brokerId {remoteHostBoerse remotePortUDPBoerse remotePortRMIBoerse localPortRMIBroker remoteSOAPHost remoteRESTHost localSOAPHostBroker localRESTHostBroker}");
 		
 		Integer brokerId = Integer.valueOf(args[0]);
 		String remoteHostBoerse = "localhost";
@@ -704,17 +824,25 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 		if (args.length > 4)
 			localPortRMIBroker = Integer.valueOf(args[4]);
 
-		String localSOAPHostBroker = null;
+		String remoteSOAPHost = "http://localhost:8080/WebServices/public";
 		if (args.length > 5)
-			localSOAPHostBroker = args[5];
+			remoteSOAPHost = args[5];
+	
+		String remoteRESTHost = "http://localhost:9999/rest/public";
+		if (args.length > 6)
+			remoteRESTHost = args[6];
+
+		String localSOAPHostBroker = null;
+		if (args.length > 7)
+			localSOAPHostBroker = args[7];
 	
 		String localRESTHostBroker = null;
-		if (args.length > 6)
-			localRESTHostBroker = args[6];
-		
+		if (args.length > 8)
+			localRESTHostBroker = args[8];
+
 		
 		try {
-			BrokerServer brokerServer = new BrokerServer(brokerId, remoteHostBoerse, remotePortUDPBoerse, remotePortRMIBoerse, localPortRMIBroker, localSOAPHostBroker, localRESTHostBroker, System.getProperty("user.dir"));
+			BrokerServer brokerServer = new BrokerServer(brokerId, remoteHostBoerse, remotePortUDPBoerse, remotePortRMIBoerse, localPortRMIBroker, remoteSOAPHost, remoteRESTHost, localSOAPHostBroker, localRESTHostBroker, System.getProperty("user.dir"));
 		
 			//initial Data, Clients und ihre TradingsKontoStaende
 			switch (brokerId) {
@@ -759,14 +887,73 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			brokerServer.getFeedUDP();
 			
 			Thread.sleep(3000);
+			//RMI
+			brokerServer.tmpSentMode = 3;
 			brokerServer.auftragAddNew(1, new Auftrag(1, true, "AAPL", 1000, 50) );
+/*
+			Thread.sleep(3000);
+            //SOAP
+			brokerServer.tmpSentMode = 1;            
+			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100) );
+*/
+			Thread.sleep(3000);
+            //REST
+			brokerServer.tmpSentMode = 2;            
+			brokerServer.auftragCancel(1, 1);
+//			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100) );
+
+            
+  //          System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.RMI)=" + clientSOAPBoerse.getBrokerNetworkAddress(1, NetworkResource.RMI) );
+   //         System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.SOAP)=" + clientSOAPBoerse.getBrokerNetworkAddress(1, NetworkResource.SOAP) );
+   //         System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.REST)=" + clientSOAPBoerse.getBrokerNetworkAddress(1, NetworkResource.REST) );
+//            for (Emittent e : clientSOAPBoerse.getEmittentsList())
+//            	System.out.println(e.getTicker() + " - " + e.getName() );
+            
+            /*
+            //REST
+            org.apache.cxf.jaxrs.client.WebClient clientREST = org.apache.cxf.jaxrs.client.WebClient.create("http://localhost:9999/rest/public");
+            clientREST.path("broker_network_address").path(3).path(NetworkResource.SOAP.getNumVal()).accept("text/plain");
+            System.out.println("result = " + clientREST.get(String.class) );
+
+            */
+            
+            
+//			Thread.sleep(3000);
+//			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100) );
+
+//			Thread.sleep(3000);
+//			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 1000, 45) );
 
 			Thread.sleep(3000);
-			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100) );
+			
+			//System.out.println( "send Addr = " + requestPacket.getAddress().toString() );
+
+			
+			for(Client cl : brokerServer.getClientsList()) {
+				  System.out.println(cl + " => " + cl.getDisponibelstand() + ", " + cl.getKontostand());
+				  
+					for(java.util.Map.Entry<Integer,Integer> entry : cl.getAccountEmittents().entrySet()) {
+						Integer key = entry.getKey();
+						  Integer value = entry.getValue();
+
+						  System.out.println(key + " => " + value);
+						}
+
+					for(java.util.Map.Entry<Integer,Integer> entry : cl.getDisponibleAccountEmittents().entrySet()) {
+						Integer key = entry.getKey();
+						  Integer value = entry.getValue();
+
+						  System.out.println(key + " => " + value);
+						}
+
+
+				}
+			
 
 		}
 		catch(Exception e) {
 			e.printStackTrace();
 		}
 	}
+	
 }

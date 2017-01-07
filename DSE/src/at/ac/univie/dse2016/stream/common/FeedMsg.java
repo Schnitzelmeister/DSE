@@ -47,10 +47,10 @@ public class FeedMsg implements Externalizable {
 		id = in.readInt();
 		tickerId = in.readInt();
 		anzahl = in.readInt();
-		status = AuftragStatus.values()[in.readInt() - 1];
+		status = AuftragStatus.values()[in.readInt()];
 		price = in.readFloat();
 		id2 = in.readInt();
-		status2 = AuftragStatus.values()[in.readInt() - 1];
+		status2 = AuftragStatus.values()[in.readInt()];
 	}
 
 	public FeedMsg() {

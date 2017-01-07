@@ -18,11 +18,11 @@ import org.apache.activemq.ActiveMQConnectionFactory;
 
 /**
  * 
- * Diese Klasse wird von RMI, SOAP und RESTful (not HTML) verwendet
+ * Diese Klasse wird von SOAP verwendet
  *
  */
 
-@WebService(targetNamespace = "http://boerse.stream.dse2016.univie.ac.at/", endpointInterface = "at.ac.univie.dse2016.stream.common.BoersePublic", portName = "BoersePublicAdapterPort", serviceName = "BoersePublicAdapterService")
+@WebService(targetNamespace = "http://boerse.stream.dse2016.univie.ac.at/", endpointInterface = "at.ac.univie.dse2016.stream.common.BoerseClient", portName = "BoerseSOAPPort", serviceName = "BoerseSOAPService")
 public class BoerseSOAP implements BoerseClient, ExceptionListener  {
 
 	private BoerseClient clientRMI;
@@ -44,6 +44,8 @@ public class BoerseSOAP implements BoerseClient, ExceptionListener  {
 	
         //Start Messaging
         ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(messageBrokerUrl);
+        connectionFactory.setTrustAllPackages(true);
+
         Connection connection;
         try {
             connection = connectionFactory.createConnection();
@@ -94,7 +96,8 @@ public class BoerseSOAP implements BoerseClient, ExceptionListener  {
 	 * Auftrag eines Brokers stellen, ohne Sicherheitspruefung
 	 */
 	public Integer auftragAddNew(Integer brokerId, Auftrag auftrag) throws RemoteException, IllegalArgumentException {
-		
+        System.out.println("SOAP auftragAddNew");
+
 		if (auftrag.getOwnerId() != brokerId)
 			throw new IllegalArgumentException("Auftrag has not equal OwnerIds");
 
@@ -156,7 +159,9 @@ public class BoerseSOAP implements BoerseClient, ExceptionListener  {
 	 * Auftrag eines Brokers zurueckrufen, ohne Sicherheitspruefung
 	 */
 	public void auftragCancel(Integer brokerId, Integer auftragId) throws RemoteException, IllegalArgumentException {
-		try {
+        System.out.println("SOAP auftragCancel");
+
+        try {
 	        //Now create the actual message you want to send
 			ObjectMessage auftragMessage = session.createObjectMessage();
 			
@@ -251,6 +256,7 @@ public class BoerseSOAP implements BoerseClient, ExceptionListener  {
 	}
 
 	public void onException(JMSException e) { 
-		  System.out.println("JMS Exception occurred"); 
+		  System.out.println("JMS Exception occurred");
+		  e.printStackTrace();
 	}
 }

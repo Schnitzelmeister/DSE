@@ -117,6 +117,8 @@ public class Client extends at.ac.univie.dse2016.stream.common.dao.PersistableOb
 		this.disponibleAccountEmittents = new java.util.TreeMap<Integer /*emittentId*/, Integer /*anzahl*/>(this.accountEmittents);
 	}
 	
+	public Client() {}
+	
 	private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
 		    in.defaultReadObject();
 		    this.disponibelstand = kontostand;

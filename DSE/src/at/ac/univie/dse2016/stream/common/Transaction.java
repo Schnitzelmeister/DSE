@@ -48,4 +48,6 @@ public class Transaction extends at.ac.univie.dse2016.stream.common.dao.Persista
 		this.price = price;
 		this.dateCommitted = dateCommitted;
 	}
+
+	public Transaction() {}
 }

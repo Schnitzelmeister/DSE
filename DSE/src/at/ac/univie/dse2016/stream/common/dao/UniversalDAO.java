@@ -101,7 +101,7 @@ public class UniversalDAO <T extends PersistableObject> {
 	/**
 	 * Speichert Container in einem Datei
 	 */
-	private void save() throws IllegalArgumentException {
+	private synchronized void save() throws IllegalArgumentException {
 		try
 		{
 			ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(this.source));
@@ -111,7 +111,7 @@ public class UniversalDAO <T extends PersistableObject> {
 		}
 		catch(Exception e)
 		{
-			//e.printStackTrace();
+			e.printStackTrace();
 			throw new IllegalArgumentException("Serialization Exception occured");
 		}
 	}
