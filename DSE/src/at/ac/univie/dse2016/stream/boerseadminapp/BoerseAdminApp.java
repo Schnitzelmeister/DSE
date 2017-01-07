@@ -14,7 +14,7 @@ public final class BoerseAdminApp {
 	public static void main(String[] args) {
 		
         if (System.getSecurityManager() == null) {
-            System.setSecurityManager(new SecurityManager());
+          //  System.setSecurityManager(new SecurityManager());
         }
         try {
             Registry registry = LocateRegistry.getRegistry(10001);

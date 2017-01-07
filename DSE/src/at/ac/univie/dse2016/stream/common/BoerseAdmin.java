@@ -19,6 +19,13 @@ public interface BoerseAdmin extends BoersePublic {
 	 * Remove Emittent, Admin's Function
 	 */
 	public void emittentLock(Emittent emittent) throws RemoteException, IllegalArgumentException;
+
+	/**
+	 * Show all Emittents
+	 * @return
+	 * @throws RemoteException
+	 */
+	public java.util.ArrayList<Emittent> getEmittentsList() throws RemoteException;
 	
 	/**
 	 * AddNew Broker, Admin's Function
