@@ -63,7 +63,6 @@ public class Auftrag extends at.ac.univie.dse2016.stream.common.dao.PersistableO
 	public Auftrag() {}
 	
 	public int compareTo(Auftrag compareAuftrag) {
-		//ascending order
 		return this.id - compareAuftrag.id;
 	}
 	

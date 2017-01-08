@@ -123,6 +123,7 @@ public class Client extends at.ac.univie.dse2016.stream.common.dao.PersistableOb
 		    in.defaultReadObject();
 		    this.disponibelstand = kontostand;
 		    this.disponibleAccountEmittents = new java.util.TreeMap<Integer /*emittentId*/, Integer /*anzahl*/>(this.accountEmittents);
+		    this.auftraege = new java.util.TreeMap<Integer, Auftrag>();
 		}
 
 }

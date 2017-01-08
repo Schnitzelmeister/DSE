@@ -359,8 +359,9 @@ public class BoerseRESTful implements ExceptionListener {
 			return e.getMessage();
 		}
 	}
-
-	@DELETE
+	
+	//@DELETE
+	@POST
     @Path("/auftrag/{id}/cancel")
 	@Produces(MediaType.TEXT_PLAIN)
 	public String auftragCancel(@FormParam("owner") Integer brokerId, @PathParam("id") Integer auftragId) throws RemoteException, IllegalArgumentException {
@@ -417,10 +418,12 @@ public class BoerseRESTful implements ExceptionListener {
                 	throw new IllegalArgumentException("Exception occured");
             } catch (JMSException e) {
             	e.printStackTrace();
+            	throw new IllegalArgumentException("Exception occured");
             }
 		}
 		catch (Exception e) {
         	e.printStackTrace();
+        	throw new IllegalArgumentException("Exception occured");
 		}
 
 		//clientRMI.auftragCancel(brokerId, auftragId);

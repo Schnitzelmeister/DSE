@@ -19,6 +19,5 @@
 			<attribute name="owner.project.facets" value="java"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="C:/Users/uniw/git/g2016w_dse_0104/DSE/jackson-jaxrs-json-provider-2.8.5.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

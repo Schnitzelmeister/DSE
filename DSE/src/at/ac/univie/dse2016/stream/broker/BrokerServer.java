@@ -88,7 +88,7 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
             this.clientSOAPBoerse = service.getPort(portName, BoerseClient.class);
             
             //Init REST
-            this.clientRESTBoerse = org.apache.cxf.jaxrs.client.WebClient.create(this.remoteRESTHost,  java.util.Collections.singletonList(new com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider() ));
+            this.clientRESTBoerse = org.apache.cxf.jaxrs.client.WebClient.create(this.remoteRESTHost);
             
             
             //publish Broker objects RMI
@@ -354,6 +354,8 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			auftrag.setId(ret);
 			auftrag.setStatus(AuftragStatus.Accepted);
 			auftraege.put(ret, auftrag);
+			
+			client.getAuftraegeList().put(ret, auftrag);
 
 			this.poolDAO.getAuftragDAO().speichereItem( auftrag );
 			return ret;
@@ -373,7 +375,7 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 		Client client = this.poolDAO.getClientDAO().getItemById(clientId);
 		java.util.TreeMap<Integer, Auftrag> auftraege = client.getAuftraegeList();	
 		if ( !auftraege.containsKey(auftragId) )
-			throw new IllegalArgumentException("Auftrag with id=" + auftragId + " does not exist");
+			throw new IllegalArgumentException("Auftrag with id=" + auftragId + " is not aktive or does not exist");
 		
 		Auftrag auftrag = auftraege.get(auftragId);
 		if (auftrag.getStatus() != AuftragStatus.Accepted)
@@ -393,7 +395,7 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			}
 			//REST call
 			else if (rndVal <= 2.0f/3.0f) {
-				String body = "";
+				String body = "owner="+clientId;
 				
 				this.clientRESTBoerse.path("auftrag").path(auftragId).path("cancel").accept("text/plain");
 				String returnText = this.clientRESTBoerse.post(body, String.class);
@@ -410,13 +412,12 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			}
 
 			
-			
-			boerse.auftragCancel(this.brokerId, auftragId);
-			
 			if (auftrag.getKaufen())
 				client.setDisponibelstand(auftrag.getBedingung() * auftrag.getAnzahl());
 			else
 				client.getDisponibleAccountEmittents().put(tickerId, client.getDisponibleAccountEmittents().get(tickerId) + auftrag.getAnzahl());
+
+			client.getAuftraegeList().remove(auftragId);
 
 		}
 		catch (IllegalArgumentException e) {
@@ -720,6 +721,8 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 						else
 							client.setDisponibelstand( feedMsg.getTickerId(), clientAuftrag.getAnzahl());
 					}
+					
+					client.getAuftraegeList().remove(id);
 				}
 				else if (status == AuftragStatus.Bearbeitet || status == AuftragStatus.TeilweiseBearbeitet) {
 					if (clientAuftrag.getKaufen()) {
@@ -742,6 +745,10 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 							client.setDisponibelstand(feedMsg.getTickerId(), -feedMsg.getAnzahl());
 						}
 					}
+
+					if (status == AuftragStatus.Bearbeitet)
+						client.getAuftraegeList().remove(id);
+
 				}
 				else if (status == AuftragStatus.Accepted) {
 					clientAuftrag.setAnzahl( feedMsg.getAnzahl() );
@@ -890,18 +897,18 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			//RMI
 			brokerServer.tmpSentMode = 3;
 			brokerServer.auftragAddNew(1, new Auftrag(1, true, "AAPL", 1000, 50) );
-/*
+
 			Thread.sleep(3000);
             //SOAP
 			brokerServer.tmpSentMode = 1;            
 			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100) );
-*/
+/*
 			Thread.sleep(3000);
             //REST
 			brokerServer.tmpSentMode = 2;            
 			brokerServer.auftragCancel(1, 1);
 //			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100) );
-
+*/
             
   //          System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.RMI)=" + clientSOAPBoerse.getBrokerNetworkAddress(1, NetworkResource.RMI) );
    //         System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.SOAP)=" + clientSOAPBoerse.getBrokerNetworkAddress(1, NetworkResource.SOAP) );
