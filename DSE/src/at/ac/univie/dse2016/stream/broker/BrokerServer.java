@@ -23,7 +23,9 @@ import at.ac.univie.dse2016.stream.common.*;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
 import javax.xml.ws.soap.SOAPBinding;
-
+import javax.ws.rs.core.Form;
+import javax.ws.rs.core.MultivaluedHashMap;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.xml.ws.Endpoint;
 
 public class BrokerServer implements BrokerAdmin, BrokerClient {
@@ -324,13 +326,28 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			}
 			//REST call
 			else if (rndVal <= 2.0f/3.0f) {
-				String body = "";
+				MultivaluedMap<String, String> params = new MultivaluedHashMap<String, String> ();
+				params.add("owner", this.brokerId.toString());
 				
+				javax.xml.bind.JAXBContext jc = javax.xml.bind.JAXBContext.newInstance(Auftrag.class);
+
+				javax.xml.bind.Marshaller marshaller = jc.createMarshaller();
+		        marshaller.setProperty(javax.xml.bind.Marshaller.JAXB_FORMATTED_OUTPUT, true);
+		        ByteArrayOutputStream os = new ByteArrayOutputStream();
+		        marshaller.marshal(sent, os);
+				params.add("auftrag", os.toString());
+System.out.println( "xml = " + os.toString() );
+		        os.close();
 				
 				this.clientRESTBoerse.path("add_new_auftrag").accept("text/plain");
-				String returnText = this.clientRESTBoerse.post(body, String.class);
+				String returnText = this.clientRESTBoerse.post(new Form(params), String.class);
+				
+System.out.println( "returnText = " + returnText );
+
 				if (returnText.startsWith("ok - auftragId=")) {
-					ret = Integer.valueOf(returnText.substring(15, returnText.length() - 1));
+					returnText = returnText.substring(15, returnText.length());
+					System.out.println( "returnText = " + returnText );
+					ret = Integer.valueOf(returnText);
 				}
 				else {
 					throw new IllegalArgumentException(returnText);
@@ -360,8 +377,9 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			this.poolDAO.getAuftragDAO().speichereItem( auftrag );
 			return ret;
 		}
-		catch (IllegalArgumentException e) {
-			throw e;
+		catch (Exception e) {
+			e.printStackTrace();
+			throw new IllegalArgumentException("error");
 		}
 	}
 
@@ -395,10 +413,13 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			}
 			//REST call
 			else if (rndVal <= 2.0f/3.0f) {
-				String body = "owner="+clientId;
+				MultivaluedMap<String, String> params = new MultivaluedHashMap<String, String> ();
+				params.add("owner", clientId.toString());
 				
 				this.clientRESTBoerse.path("auftrag").path(auftragId).path("cancel").accept("text/plain");
-				String returnText = this.clientRESTBoerse.post(body, String.class);
+				String returnText = this.clientRESTBoerse.post(new Form(params), String.class);
+				//System.out.println( "returnText = " + returnText );
+				
 				if (!returnText.startsWith("ok")) {
 					throw new IllegalArgumentException(returnText);
 				}
@@ -808,7 +829,7 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 	 * @param args
 	 */
 	public static void main(String[] args) {
-
+		
         if (System.getSecurityManager() == null) {
             //System.setSecurityManager(new SecurityManager());
         }
@@ -897,18 +918,18 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 			//RMI
 			brokerServer.tmpSentMode = 3;
 			brokerServer.auftragAddNew(1, new Auftrag(1, true, "AAPL", 1000, 50) );
-
+/*
 			Thread.sleep(3000);
             //SOAP
 			brokerServer.tmpSentMode = 1;            
 			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100) );
-/*
+*/
 			Thread.sleep(3000);
             //REST
 			brokerServer.tmpSentMode = 2;            
-			brokerServer.auftragCancel(1, 1);
-//			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100) );
-*/
+//			brokerServer.auftragCancel(1, 1);
+			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100) );
+
             
   //          System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.RMI)=" + clientSOAPBoerse.getBrokerNetworkAddress(1, NetworkResource.RMI) );
    //         System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.SOAP)=" + clientSOAPBoerse.getBrokerNetworkAddress(1, NetworkResource.SOAP) );

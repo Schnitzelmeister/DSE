@@ -243,7 +243,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 		if ( !this.poolDAO.getEmittentDAO().containsTicker(auftrag.getTicker()) )
 			throw new IllegalArgumentException("Ticker " + auftrag.getTicker() + " does not exist");
 
-		if (auftrag.getOwnerId() != brokerId)
+		if (!auftrag.getOwnerId().equals(brokerId))
 			throw new IllegalArgumentException("Auftrag has not equal OwnerIds");
 
 		Integer tickerId = this.poolDAO.getEmittentDAO().getEmittentByTicker( auftrag.getTicker() ).getId();
@@ -361,12 +361,13 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 							_map.put(bedingungInteger, new java.util.TreeSet<Auftrag>());					
 						
 						_map.get(bedingungInteger).add(auftrag);
-						
+												
 						if (buy)
 							broker.setDisponibelstand(-bedingung * anzahl);
 						else
 							broker.setDisponibelstand(tickerId, -anzahl);
 						
+						broker.getAuftraegeList().put(newAuftragId, auftrag);
 						//send asynchrone
 						sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, buy, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Accepted));
 
@@ -485,7 +486,9 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 									if (!emittentSection.buy.containsKey(bedingungInteger))
 										emittentSection.buy.put(bedingungInteger, new java.util.TreeSet<Auftrag>());
 									emittentSection.buy.get(bedingungInteger).add(auftrag);
-									
+
+									broker.getAuftraegeList().put(newAuftragId, auftrag);
+
 									//send asynchrone
 									sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, true, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Accepted));
 
@@ -586,6 +589,8 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 									else
 										broker.setDisponibelstand(tickerId, -anzahl);
 									
+									broker.getAuftraegeList().put(newAuftragId, auftrag);
+
 									//send asynchrone
 									sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, false, anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Accepted));
 
@@ -620,6 +625,8 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 					else
 						broker.setDisponibelstand(tickerId, -anzahl);
 					
+					broker.getAuftraegeList().put(newAuftragId, auftrag);
+
 					//send asynchrone
 					sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, auftrag.getKaufen(), anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Accepted));
 		    	}
@@ -681,9 +688,15 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 		if (status1 == AuftragStatus.TeilweiseBearbeitet) {
 			auftrag1.setAnzahl(auftrag1.getAnzahl() - anzahl);
 		}
+		else if (status1 == AuftragStatus.Bearbeitet) {
+			broker1.getAuftraegeList().remove(auftrag1.getId());
+		}
 
 		if (status2 == AuftragStatus.TeilweiseBearbeitet) {
 			auftrag2.setAnzahl(auftrag2.getAnzahl() - anzahl);
+		}
+		else if (status2 == AuftragStatus.Bearbeitet) {
+			broker2.getAuftraegeList().remove(auftrag2.getId());
 		}
 
 		auftrag1.setStatus(status1);
@@ -752,25 +765,42 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 			throw new IllegalArgumentException("Auftrag with id=" + auftragId + " can not be canceled");
 		
 		Auftrag auftrag = auftraege.get(auftragId);
-		if (auftrag.getOwnerId() != brokerId)
-			throw new IllegalArgumentException("Auftrag with id=" + auftragId + " can not be canceled");
+		if (!auftrag.getOwnerId().equals(brokerId))
+			throw new IllegalArgumentException("Auftrag with id=" + auftragId + " can not be canceled, " + auftrag.getOwnerId() + "!=" + brokerId);
 		
 		int tickerId = this.poolDAO.getEmittentDAO().getEmittentByTicker( auftrag.getTicker() ).getId();
 		EmittentSection emittentSection = emittentSections.get( tickerId );
+		Integer bedingungInteger = Math.round(auftrag.getBedingung() * 10000);
 		
 		int msgCounter;
 		
 		synchronized(emittentSection) {
 			if (auftrag.getKaufen()) {
-				if ( emittentSection.buy.containsKey(auftragId) )
-					emittentSection.buy.remove(auftragId);
+				if ( emittentSection.buy.containsKey(bedingungInteger) )
+				{
+					if (emittentSection.buy.get(bedingungInteger).contains(auftrag) ) {
+						emittentSection.buy.get(bedingungInteger).remove(auftrag);
+						if (emittentSection.buy.get(bedingungInteger).size() == 0)
+							emittentSection.buy.remove(bedingungInteger);
+					}
+					else
+						throw new IllegalArgumentException("Auftrag with id=" + auftragId + " can not be canceled");
+				}
 				else
 					throw new IllegalArgumentException("Auftrag with id=" + auftragId + " can not be canceled");
 			}
 			
 			else {
-				if ( emittentSection.sell.containsKey(auftragId) )
-					emittentSection.sell.remove(auftragId);
+				if ( emittentSection.sell.containsKey(bedingungInteger) )
+				{
+					if (emittentSection.sell.get(bedingungInteger).contains(auftrag) ) {
+						emittentSection.sell.get(bedingungInteger).remove(auftrag);
+						if (emittentSection.sell.get(bedingungInteger).size() == 0)
+							emittentSection.sell.remove(bedingungInteger);
+					}
+					else
+						throw new IllegalArgumentException("Auftrag with id=" + auftragId + " can not be canceled");
+				}
 				else
 					throw new IllegalArgumentException("Auftrag with id=" + auftragId + " can not be canceled");
 			}
@@ -778,15 +808,15 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 			msgCounter = emittentSection.msgCounter.incrementAndGet();
 		}
 
-		//send asynchrone
-		sendFeedMsg(new FeedMsg(msgCounter, auftrag.getId(), tickerId, auftrag.getKaufen(), auftrag.getAnzahl(), 0f/*preis*/, /*status*/AuftragStatus.Canceled));
-
 		if (auftrag.getKaufen())
 			broker.setDisponibelstand(auftrag.getBedingung() * auftrag.getAnzahl());
 		else
 			broker.setDisponibelstand(tickerId, auftrag.getAnzahl());
 		
 		auftrag.setStatus(AuftragStatus.Canceled);
+
+		//send asynchrone
+		sendFeedMsg(new FeedMsg(msgCounter, auftrag.getId(), tickerId, auftrag.getKaufen(), auftrag.getAnzahl(), 0f/*preis*/, /*status*/AuftragStatus.Canceled));
 	}
 	
 	private void setToLog(int brokerId, Auftrag auftrag) {

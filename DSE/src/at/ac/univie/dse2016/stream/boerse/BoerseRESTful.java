@@ -255,9 +255,18 @@ public class BoerseRESTful implements ExceptionListener {
 	@POST
     @Path("/add_new_auftrag")
 	@Produces(MediaType.TEXT_HTML)
-	public String auftragAddNewHTML(@FormParam("owner") Integer brokerId, @FormParam("auftrag") Auftrag auftrag) throws RemoteException, IllegalArgumentException {
+	public String auftragAddNewHTML(@FormParam("owner") Integer brokerId, @FormParam("auftrag") String auftragXML) throws RemoteException, IllegalArgumentException {
 		try {
-			return "<html><title>AddNew Auftrag</title><body><h1>OK - AuftragId=" + _auftragAddNew(brokerId, auftrag) + "</h1></body></html>";
+			javax.xml.bind.JAXBContext jc = javax.xml.bind.JAXBContext.newInstance(Auftrag.class);
+			
+			java.io.InputStream is = new java.io.ByteArrayInputStream(auftragXML.getBytes());
+			javax.xml.bind.Unmarshaller unmarshaller = jc.createUnmarshaller();
+	        Auftrag auftrag = (Auftrag) unmarshaller.unmarshal(is);
+			
+			System.out.println("REST incoming ObjectMessage " + auftrag.getStatus());
+	    	System.out.println(auftrag.getBedingung() + " " + auftrag.getTicker()+ " " + auftrag.getAnzahl()+ " " + auftrag.getId()+ " " + auftrag.getOwnerId()+ " " + auftrag.getKaufen());
+
+	    	return "<html><title>AddNew Auftrag</title><body><h1>OK - AuftragId=" + _auftragAddNew(brokerId, auftrag) + "</h1></body></html>";
 		}
 		catch (Exception e) {
 			return e.getMessage();
@@ -267,16 +276,23 @@ public class BoerseRESTful implements ExceptionListener {
 	@POST
     @Path("/add_new_auftrag")
 	@Produces(MediaType.TEXT_PLAIN)
-	@Consumes(MediaType.APPLICATION_JSON)
-	public String auftragAddNew(@FormParam("owner") Integer brokerId, @FormParam("auftrag") Auftrag auftrag) throws RemoteException, IllegalArgumentException {
-    	System.out.println("REST incoming ObjectMessage " + auftrag.getStatus());
-    	System.out.println(auftrag.getBedingung() + " " + auftrag.getTicker()+ " " + auftrag.getAnzahl()+ " " + auftrag.getId()+ " " + auftrag.getOwnerId()+ " " + auftrag.getKaufen());
+	public String auftragAddNew(@FormParam("owner") Integer brokerId, @FormParam("auftrag") String auftragXML) throws RemoteException, IllegalArgumentException {
 		
 		StringBuilder sb = new StringBuilder();
 		try {
+			javax.xml.bind.JAXBContext jc = javax.xml.bind.JAXBContext.newInstance(Auftrag.class);
+	
+			java.io.InputStream is = new java.io.ByteArrayInputStream(auftragXML.getBytes());
+			javax.xml.bind.Unmarshaller unmarshaller = jc.createUnmarshaller();
+	        Auftrag auftrag = (Auftrag) unmarshaller.unmarshal(is);
+			
+			System.out.println("REST incoming ObjectMessage " + brokerId);
+	    	System.out.println(auftrag.getBedingung() + " " + auftrag.getTicker()+ " " + auftrag.getAnzahl()+ " " + auftrag.getId()+ " " + auftrag.getOwnerId()+ " " + auftrag.getKaufen());
+			
 			sb.append( "ok - auftragId=" + _auftragAddNew(brokerId, auftrag).toString() );
 		}
 		catch (Exception e) {
+			e.printStackTrace();
 			sb.append( e.getMessage() );
 		}
 		return sb.toString(); 
@@ -288,8 +304,8 @@ public class BoerseRESTful implements ExceptionListener {
 	 */
 	private Integer _auftragAddNew(Integer brokerId, Auftrag auftrag) throws RemoteException, IllegalArgumentException {
 		
-		if (auftrag.getOwnerId() != brokerId)
-			throw new IllegalArgumentException("Auftrag has not equal OwnerIds");
+		if (!auftrag.getOwnerId().equals(brokerId))
+			throw new IllegalArgumentException("Auftrag has not equal OwnerIds " + auftrag.getOwnerId() + " and " + brokerId);
 
 		int ret = -1;
 		try {
@@ -331,6 +347,7 @@ public class BoerseRESTful implements ExceptionListener {
             }
 		}
 		catch (Exception e) {
+			e.printStackTrace();
 		}
 
         return ret;

@@ -98,7 +98,7 @@ public class BoerseSOAP implements BoerseClient, ExceptionListener  {
 	public Integer auftragAddNew(Integer brokerId, Auftrag auftrag) throws RemoteException, IllegalArgumentException {
         System.out.println("SOAP auftragAddNew");
 
-		if (auftrag.getOwnerId() != brokerId)
+		if (!auftrag.getOwnerId().equals(brokerId))
 			throw new IllegalArgumentException("Auftrag has not equal OwnerIds");
 
 		int ret = -1;
