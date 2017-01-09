@@ -232,7 +232,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 	}
 	/**
 	 * Auftrag eines Brokers stellen
-	 */
+	 */ 
 	public Integer auftragAddNew(Integer brokerId, Auftrag auftrag) throws RemoteException, IllegalArgumentException {
 		if ( status != BoerseStatus.Open )
 			throw new IllegalArgumentException("Die Boerse ist geschlossen");
