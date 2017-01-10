@@ -1195,7 +1195,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
             broker.start();
 
             ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(messageBrokerUrl);
-            connectionFactory.setTrustAllPackages(true);
+           // connectionFactory.setTrustAllPackages(true);
             
             try {
                 connection = connectionFactory.createConnection();

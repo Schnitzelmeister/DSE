@@ -1,11 +1,21 @@
 package at.ac.univie.dse2016.stream.boerseadminapp;
 
 import at.ac.univie.dse2016.stream.common.BoerseAdmin;
+import at.ac.univie.dse2016.stream.common.BoersePublic;
+import at.ac.univie.dse2016.stream.common.BrokerAdmin;
+import at.ac.univie.dse2016.stream.common.NetworkResource;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
+
+import java.rmi.NotBoundException;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
+
+import static at.ac.univie.dse2016.stream.brokeradminapp.Main.brokerId;
 
 
 public class Main extends Application {
@@ -23,7 +33,12 @@ public class Main extends Application {
     }
 
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws RemoteException, NotBoundException {
+
+		Registry registry = LocateRegistry.getRegistry("localhost", 10001);
+		boerseAdmin =(BoerseAdmin)registry.lookup("adminBoerse");
+
+
 /**
 
 		if (args.length < 1)

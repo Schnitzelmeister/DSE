@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.text.Text?>
+
+<Pane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="at.ac.univie.dse2016.stream.boerseadminapp.AddBrokerController">
+   <children>
+      <TextField fx:id="broker_name" layoutX="93.0" layoutY="71.0" />
+      <TextField fx:id="broker_phone" layoutX="316.0" layoutY="71.0" />
+      <Text layoutX="150.0" layoutY="65.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Name" />
+      <Text layoutX="371.0" layoutY="65.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Phone" />
+      <Button layoutX="416.0" layoutY="187.0" mnemonicParsing="false" onAction="#BrokerAddNew" text="Add Broker" />
+      <Text fx:id="failText" fill="#ee0707" layoutX="348.0" layoutY="355.0" strokeType="OUTSIDE" strokeWidth="0.0" text=" " />
+      <TextField fx:id="broker_licence" layoutX="93.0" layoutY="140.0" />
+      <Text layoutX="148.0" layoutY="136.0" strokeType="OUTSIDE" strokeWidth="0.0" text="Licence" />
+   </children>
+</Pane>

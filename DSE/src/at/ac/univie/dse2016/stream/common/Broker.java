@@ -3,7 +3,15 @@ package at.ac.univie.dse2016.stream.common;
 public class Broker extends Client {
 
 	private static final long serialVersionUID = 100L;
-	
+
+	public void setPhone(String phone) {
+		this.phone = phone;
+	}
+
+	public void setLicense(String license) {
+		this.license = license;
+	}
+
 	protected String phone;
 	public String getPhone() { return phone; }
 
@@ -57,6 +65,6 @@ public class Broker extends Client {
 	public Broker() {}
 	
 	public String toString() { 
-	    return this.name + " - " + this.networkRMIAddress;
+	    return this.name + this.phone + this.license + " - " + this.networkRMIAddress;
 	} 
 }

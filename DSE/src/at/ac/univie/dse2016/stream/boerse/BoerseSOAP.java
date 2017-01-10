@@ -44,7 +44,7 @@ public class BoerseSOAP implements BoerseClient, ExceptionListener  {
 	
         //Start Messaging
         ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(messageBrokerUrl);
-        connectionFactory.setTrustAllPackages(true);
+        //connectionFactory.setTrustAllPackages(true);
 
         Connection connection;
         try {
