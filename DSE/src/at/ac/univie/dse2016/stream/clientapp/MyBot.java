@@ -6,6 +6,7 @@ import java.util.Random;
  * Es gibt ZielMarktPreise, die der Investor selbst kalkuliert (sie sind im emittentZielMarktPrices)
  * Je staerke der MarktPreis von emittentZielMarktPrices abweicht und mehr Geld der Investor hat, desto mehr die Wahrscheinlichkeit, dass der Bot die Aktien kauft/verkauft
  */
+@BotDescription(Description = "My simple Bot")
 public class MyBot extends Bot {
 	public String getName() {
 		return "MyBot";

@@ -373,8 +373,9 @@ System.out.println( "returnText = " + returnText );
 			auftraege.put(ret, auftrag);
 			
 			client.getAuftraegeList().put(ret, auftrag);
-
+			
 			this.poolDAO.getAuftragDAO().speichereItem( auftrag );
+
 			return ret;
 		}
 		catch (Exception e) {
@@ -461,7 +462,7 @@ System.out.println( "returnText = " + returnText );
 	 */
 	public Client getState(Integer clientId) throws RemoteException, IllegalArgumentException {
 		if ( !this.poolDAO.getClientDAO().containsKey(clientId) )
-			throw new IllegalArgumentException("Client with id=" + brokerId + " does not exist");
+			throw new IllegalArgumentException("Client with id=" + clientId + " does not exist");
 
 		return this.poolDAO.getClientDAO().getItemById(clientId);
 	}
@@ -470,7 +471,7 @@ System.out.println( "returnText = " + returnText );
 		if ( !this.poolDAO.getClientDAO().containsKey(clientId) )
 			throw new IllegalArgumentException("Client " + String.valueOf(clientId) + " does not exist");
 
-		return this.poolDAO.getAuftragDAO().getAuftraege(brokerId);
+		return this.poolDAO.getAuftragDAO().getAuftraege(clientId);
 	}
 
 	public java.util.TreeSet<Transaction> getTransaktionen(Integer clientId) throws RemoteException, IllegalArgumentException {
@@ -642,21 +643,41 @@ System.out.println( "returnText = " + returnText );
 	}
 
 	private void listenUDPResponse() {
-	    try {
-	    	byte[] buf = new byte[1024];
+//System.out.println( "listenUDPResponse START" );
+		try {
+	    	byte[] buf = new byte[64 * 1024];
 	    	
 	    	do {
 				DatagramPacket requestPacket = new DatagramPacket(buf, buf.length);
 				socketUDP.receive(requestPacket);
-	
+//System.out.println( "listenUDPResponse" );
 			    ByteArrayInputStream bis = new ByteArrayInputStream(requestPacket.getData());
-			    ObjectInput in = new ObjectInputStream(bis);
-			    byte len = in.readByte();
-			    for (byte i = 0; i < len; ++i) {
-					FeedMsg feed = (FeedMsg) in.readObject();
-			    	processFeedMsg(feed);
+			    //int l = _bis.read(buf);
+//System.out.println( sessionId + " ars = " + l );
+			    
+				//ByteArrayInputStream bis = new ByteArrayInputStream(_bis);
+				
+			    ObjectInput in = new ObjectInputStream( bis );
+//System.out.println(java.util.Arrays.toString(buf));
+
+
+//System.out.println( sessionId + " get msgCount = " + len );
+			    for (byte i = 0; i < 255; ++i) {
+			    	try {
+			    		FeedMsg feed = (FeedMsg) in.readObject();
+			    		processFeedMsg(feed);
+//System.out.println( "listenUDPResponse process" );
+
+			    	}
+			    	catch(java.io.EOFException e) { break; }
+			    	catch(java.io.StreamCorruptedException e) { break; }
+			    	catch(java.io.OptionalDataException e) { break; }
+			    	
 			    }
+//System.out.println( "listenUDPResponse end" );
+
 			    in.close();
+			    //_bis.close();
 			    bis.close();
 			    
 	    	} while (true);
@@ -670,13 +691,15 @@ System.out.println( "returnText = " + returnText );
 	    	e.printStackTrace();
 	    }
 	    catch (ClassNotFoundException e){
-	    	System.err.println("IO: " + e.getMessage());
+	    	System.err.println("ClassNotFoundException: " + e.getMessage());
 	    	e.printStackTrace();
 	    }
 	    catch (Exception e){
 	    	System.err.println("Exception: " + e.getMessage());
 	    	e.printStackTrace();
 	    }
+	    
+//System.out.println( "listenUDPResponse BUY" );
 	}
 	
 	private void processFeedMsg(FeedMsg feedMsg) {
@@ -913,23 +936,30 @@ System.out.println( "returnText = " + returnText );
 			}
 			
 			brokerServer.getFeedUDP();
-			
+
+			brokerServer.tmpSentMode = 3;
+			/*
 			Thread.sleep(3000);
 			//RMI
-			brokerServer.tmpSentMode = 3;
-			brokerServer.auftragAddNew(1, new Auftrag(1, true, "AAPL", 1000, 50) );
+			brokerServer.tmpSentMode = 3;*/
+			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 1000, 50) );
+
+			Thread.sleep(10000);
+			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100, 500) );
+
 /*
 			Thread.sleep(3000);
             //SOAP
 			brokerServer.tmpSentMode = 1;            
 			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100) );
 */
+			/*
 			Thread.sleep(3000);
             //REST
 			brokerServer.tmpSentMode = 2;            
 //			brokerServer.auftragCancel(1, 1);
 			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100) );
-
+*/
             
   //          System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.RMI)=" + clientSOAPBoerse.getBrokerNetworkAddress(1, NetworkResource.RMI) );
    //         System.out.println( "client.getBrokerNetworkAddress(1, NetworkResource.SOAP)=" + clientSOAPBoerse.getBrokerNetworkAddress(1, NetworkResource.SOAP) );
@@ -951,7 +981,7 @@ System.out.println( "returnText = " + returnText );
 
 //			Thread.sleep(3000);
 //			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 1000, 45) );
-
+/*
 			Thread.sleep(3000);
 			
 			//System.out.println( "send Addr = " + requestPacket.getAddress().toString() );
@@ -976,7 +1006,7 @@ System.out.println( "returnText = " + returnText );
 
 
 				}
-			
+			*/
 
 		}
 		catch(Exception e) {

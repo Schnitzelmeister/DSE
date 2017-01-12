@@ -70,4 +70,7 @@ public class Auftrag extends at.ac.univie.dse2016.stream.common.dao.PersistableO
 		super.setId(id);
 	}
 
+	public String toString() { 
+	    return ((this.kaufen) ? "buy" : "sell")  + " " + this.anzahl + " " + this.ticker + ((this.bedingung > 0) ? " (price " + ((this.kaufen) ? "<= " : ">= ")  + this.bedingung + ")" : "");
+	} 
 }

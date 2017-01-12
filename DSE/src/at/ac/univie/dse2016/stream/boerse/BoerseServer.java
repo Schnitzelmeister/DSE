@@ -337,6 +337,8 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 			boolean commitTransaction = (bedingung == -1);
 			boolean committed = false;
 			
+//System.out.println(  " BBBBBBBBB "  );
+
 			//lock Section
 			synchronized(emittentSection)
 			{
@@ -344,10 +346,15 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 				if (bedingung > 0) {
 					
 					if (buy)
-						commitTransaction = ( (emittentSection.sell.size() > 0) && (emittentSection.sell.firstKey() <= bedingung) );
+						commitTransaction = ( (emittentSection.sell.size() > 0) && (emittentSection.sell.firstKey() <= bedingungInteger) );
 					else
-						commitTransaction = ( (emittentSection.buy.size() > 0) && (emittentSection.buy.firstKey() >= bedingung));
-					
+						commitTransaction = ( (emittentSection.buy.size() > 0) && (emittentSection.buy.firstKey() >= bedingungInteger));
+/*					
+if (emittentSection.sell.size() > 0)
+System.out.println( buy +  " emittentSection.sell.firstKey()  "+ emittentSection.sell.firstKey() + "  "  + bedingung );
+else
+System.out.println( buy +  " emittentSection.sell.size() == 0  "+ bedingung  );
+*/	
 					//es gibt keine passende Auftraege, dann muss man einfach den Auftrag in der Sektion hinzufuegen 
 					if (!commitTransaction) {
 						
@@ -374,21 +381,25 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 						return;
 					}
 				}
-				
+
+//System.out.println(  " AAAAAAAAA "  );
+
 				//commit Transaction
 				java.util.TreeMap<Integer, java.util.TreeSet<Auftrag> > _map;
 				if (buy)
 					_map = emittentSection.sell;
 				else
 					_map = emittentSection.buy;
-				
+
 		    	for(java.util.Iterator< java.util.Map.Entry< Integer, java.util.TreeSet<Auftrag> >> ito = _map.entrySet().iterator(); ito.hasNext(); ) {
 		    		java.util.Map.Entry< Integer, java.util.TreeSet<Auftrag> > e = ito.next();	  
 
 		    		for(java.util.Iterator< Auftrag > it = e.getValue().iterator(); it.hasNext(); ) {
 		    			Auftrag a = it.next();	  
 						Broker secondBroker = this.poolDAO.getBrokerDAO().getItemById( a.getOwnerId() );
-						
+
+//System.out.println( a.getBedingung() + " 0000 a.getBedingung()<= bedingung " +bedingung );
+
 						//test, ob es genug geld, aktien bei beiden brokers sind
 
 						//der  Kauf
@@ -437,6 +448,8 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 							}
 							//mit bedingung
 							else {
+//System.out.println( a.getBedingung() + " a.getBedingung()<= bedingung " +bedingung );
+
 								//bedingung passt
 								if (a.getBedingung() <= bedingung) {
 									//kein Geld mehr bei Kauefer - sollte unmoeglich sein
@@ -699,8 +712,10 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 			broker2.getAuftraegeList().remove(auftrag2.getId());
 		}
 
-		auftrag1.setStatus(status1);
-		auftrag2.setStatus(status2);
+		if (status1 == AuftragStatus.Bearbeitet)
+			auftrag1.setStatus(status1);
+		if (status2 == AuftragStatus.Bearbeitet)
+			auftrag2.setStatus(status2);
 
 				  System.out.println("after");
 		try {
@@ -1010,12 +1025,11 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 	 * Send UDP Feed Message to all Users
 	 */
 	private void sendFeedMsg(FeedMsg msg) {
-    	System.out.println( "send msg = " + msg.getId() );
+    	System.out.println( "send msg msgid = " + msg.getId() );
 
 	    try {
 		    ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		    ObjectOutput out = new ObjectOutputStream(bos);
-		    out.write((byte)1);
 	    	out.writeObject(msg);
 	    	
 	    	for(java.util.Iterator<java.util.Map.Entry<Integer, UDPSession>> it = emittentSections.get(msg.getTickerId()).activeUDPSessions.entrySet().iterator(); it.hasNext(); ) {
@@ -1032,7 +1046,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 	    		}
 	    		else {
 	    		
-	    			System.out.println( "send msg = " + msg.getId() + " TO " + s.address + ":" + s.port );
+	    			System.out.println( "send msg = " + msg.getPrice() + " " + msg.getStatus()  + " " + msg.getKaufen()  + " " + msg.getTickerId()  + " TO " + s.address + ":" + s.port );
 	    			
 					//Send FeedMsg async
 					new Thread(new java.lang.Runnable() {
@@ -1090,6 +1104,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 	 */
 	private void processFeedRequest(DatagramPacket requestPacket) {
 		try {
+			int msgCount;
             //System.out.println( "requestPacket Addr = " + requestPacket.getAddress().toString() );
             //System.out.println( "requestPacket Port = " + requestPacket.getPort() );
 
@@ -1102,9 +1117,11 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 		    Integer sessionId = feedRequest.getSessionId();
 		    boolean newSession = !this.activeUDPSessions.containsKey(sessionId);
 		    UDPSession sessionUDP;
-		    
+
+			System.out.println( "processFeedRequest="  + sessionId + " , newSession= " + newSession );
+
 		    if (newSession) {
-		    	sessionId = sessionCounter.getAndIncrement();
+		    	sessionId = sessionCounter.incrementAndGet();
 		    	sessionUDP = new UDPSession(feedRequest.getEmittentIds(), requestPacket.getAddress(), requestPacket.getPort());
 		    	
 		    	this.activeUDPSessions.put( sessionId, sessionUDP );
@@ -1126,12 +1143,58 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 		    if (newSession) {
 			    ByteArrayOutputStream bos = new ByteArrayOutputStream();
 			    ObjectOutput out = new ObjectOutputStream(bos);
-			    out.write((byte)marketPrices.size());
-			    for (java.util.Map.Entry<Integer, Float> ae : marketPrices.entrySet()) {
-			    	FeedMsg msg = new FeedMsg(-1, sessionId, ae.getKey(), true, 0, ae.getValue(), AuftragStatus.Accepted);
+			    //out.writeInt((Integer)0);
+			    
+			    for (int eid : feedRequest.getEmittentIds() ) {
+			    	FeedMsg msg = new FeedMsg(-1, sessionId, eid, true, 0, marketPrices.get(eid), AuftragStatus.Accepted);
 			    	out.writeObject(msg);
 			    }
-	
+		    	msgCount = feedRequest.getEmittentIds().length;
+
+			    for (int emittentId : feedRequest.getEmittentIds()) {
+			    	int count = 0;
+			    	for ( java.util.TreeSet<Auftrag> els : this.emittentSections.get(emittentId).buy.values() ) {
+			    		for ( Auftrag el : els ) {
+			    			if (count++ > 5 || msgCount > 250)
+			    				break;
+					    	FeedMsg msg = new FeedMsg(-1, el.getId(), emittentId, el.getKaufen(), el.getAnzahl(), el.getBedingung(), el.getStatus());
+					    	++msgCount;
+System.out.println( sessionId +  " send buffered msg = " + msg.getPrice() );			    		
+					    	out.writeObject(msg);
+			    		}
+		    			if (count > 5 || msgCount > 250)
+		    				break;
+			    	}
+
+			    	count = 0;
+			    	for ( java.util.TreeSet<Auftrag> els : this.emittentSections.get(emittentId).sell.values() ) {
+			    		for ( Auftrag el : els ) {
+			    			if (count++ > 5 || msgCount > 250)
+			    				break;
+					    	FeedMsg msg = new FeedMsg(-1, el.getId(), emittentId, el.getKaufen(), el.getAnzahl(), el.getBedingung(), el.getStatus());
+					    	++msgCount;
+System.out.println( sessionId + " send buffered msg = " + msg.getPrice() );	    		
+					    	out.writeObject(msg);
+			    		}
+			    		
+		    			if (count > 5 || msgCount > 250)
+		    				break;
+			    	}
+			    }
+
+			    System.out.println( sessionId + " send msgCount = " + msgCount );	  
+//			    byte[] ar = bos.toByteArray();
+//System.out.println(java.util.Arrays.toString(ar));
+
+				//ar[9] = (byte)msgCount;
+	//			System.out.println(java.util.Arrays.toString(ar));
+//				bosReal.write(new byte[] { (byte)msgCount, 0,0,0 }, 0, 4);
+			    
+/*			    ByteArrayOutputStream bosReal = new ByteArrayOutputStream();
+				bosReal.write(bos.toByteArray());
+System.out.println( sessionId + " bos.toByteArray() = " + bos.size() );	    		
+System.out.println( sessionId + " bosReal.toByteArray() = " + bosReal.size() );	    		
+	*/
 		    	DatagramPacket reply = new DatagramPacket(bos.toByteArray(), bos.size(),
 		    			sessionUDP.address, sessionUDP.port);
 		    	
@@ -1139,6 +1202,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 
 		    	out.close();
 			    bos.close();
+		    	//bosReal.close();
 		    }
 		}
 	    catch (SocketException e){
@@ -1195,7 +1259,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
             broker.start();
 
             ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(messageBrokerUrl);
-           // connectionFactory.setTrustAllPackages(true);
+            connectionFactory.setTrustAllPackages(true);
             
             try {
                 connection = connectionFactory.createConnection();

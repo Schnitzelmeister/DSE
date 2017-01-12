@@ -27,6 +27,6 @@ public final class Emittent extends at.ac.univie.dse2016.stream.common.dao.Persi
 	}
 
 	public String toString() { 
-	    return this.ticker + " - " + this.name;
+	    return this.ticker;// + " - " + this.name;
 	} 
 }
