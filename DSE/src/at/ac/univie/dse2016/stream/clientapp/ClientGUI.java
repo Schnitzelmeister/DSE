@@ -114,7 +114,7 @@ public class ClientGUI {
 				Vector<String> bots = new Vector<String>();
 				for (Class<?> cls : getClassesForPackage(Package.getPackage("at.ac.univie.dse2016.stream.clientapp"))) {
 					if (cls.getSuperclass() == at.ac.univie.dse2016.stream.clientapp.Bot.class) {
-						bots.addElement(cls.getAnnotation(at.ac.univie.dse2016.stream.clientapp.BotDescription.class).Description() + " <" + cls.getName() + ">");
+					//	bots.addElement(cls.getAnnotation(at.ac.univie.dse2016.stream.clientapp.BotDescription.class).Description() + " <" + cls.getName() + ">");
 					}
 				}
 				gui.cmbBots.setModel(new DefaultComboBoxModel<String>(bots));

@@ -1259,9 +1259,9 @@ System.out.println( sessionId + " bosReal.toByteArray() = " + bosReal.size() );
             broker.start();
 
             ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(messageBrokerUrl);
-            connectionFactory.setTrustAllPackages(true);
-            
-            try {
+			connectionFactory.setTrustAllPackages(true);
+
+			try {
                 connection = connectionFactory.createConnection();
                 connection.setExceptionListener(this); 
                 connection.start();

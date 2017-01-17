@@ -1,0 +1,40 @@
+<component name="libraryTable">
+  <library name="apache-activemq-5.14">
+    <CLASSES>
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/amqp/java/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/mqtt/java/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/advanced-scenarios/jms-example-composite-destinations/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/advanced-scenarios/jms-example-durable-sub/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/advanced-scenarios/jms-example-exclusive-consumer/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/advanced-scenarios/jms-example-message-browser/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/advanced-scenarios/jms-example-queue-selector/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/advanced-scenarios/jms-example-queue/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/advanced-scenarios/jms-example-temp-destinations/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/advanced-scenarios/jms-example-topic/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/advanced-scenarios/jms-example-transaction/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/advanced-scenarios/jms-example-wildcard-consumer/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/ecommerce/src" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/exploring-jms/QueuePTPSamples/QueueMonitor" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/exploring-jms/QueuePTPSamples/QueueRoundTrip" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/exploring-jms/QueuePTPSamples/RequestReply" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/exploring-jms/QueuePTPSamples/SelectorTalk" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/exploring-jms/QueuePTPSamples/Talk" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/exploring-jms/QueuePTPSamples/TransactedTalk" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/exploring-jms/TopicPubSubSamples/Chat" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/exploring-jms/TopicPubSubSamples/DurableChat" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/exploring-jms/TopicPubSubSamples/HierarchicalChat" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/exploring-jms/TopicPubSubSamples/MessageMonitor" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/exploring-jms/TopicPubSubSamples/RequestReply" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/exploring-jms/TopicPubSubSamples/SelectorChat" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/exploring-jms/TopicPubSubSamples/TransactedChat" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/java/src/main/java" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/openwire/swissarmy/src" />
+      <root url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3/examples/stomp/java/src/main/java" />
+    </SOURCES>
+    <jarDirectory url="file://$PROJECT_DIR$/../../UNI/apache-cxf-3.1.8/apache-activemq-5.14.3" recursive="false" />
+  </library>
+</component>
