@@ -73,13 +73,13 @@ public class UniversalDAO <T extends PersistableObject> {
 	public void speichereItem(T item) throws IllegalArgumentException {
 		
 		//add new item, sonst edit
-		if ( item.getId() == -1 ) {
+		if ( item.getId().equals(-1) ) {
 			item.setId(this.idGen.incrementAndGet());
 			this.container.put(item.getId(), item);
 		}
-		else if ( !container.containsKey(item.getId()) ) {
-			if (!ignoreConflicts)
-				throw new IllegalArgumentException("Item with id=" + String.valueOf( item.getId() ) + " doesn't exist");
+		else {
+			if ( ignoreConflicts && !container.containsKey(item.getId()) )
+					throw new IllegalArgumentException("Item with id=" + String.valueOf( item.getId() ) + " doesn't exist");
 			this.container.put(item.getId(), item);
 		}
 

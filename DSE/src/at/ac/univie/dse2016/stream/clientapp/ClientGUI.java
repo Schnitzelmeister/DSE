@@ -58,7 +58,7 @@ import javax.swing.JRadioButton;
 import java.awt.Color;
 import java.awt.Font;
 
-public class ClientGUI {
+public class ClientGUI implements ActionListener {
 
 	static class MyRunnable implements Runnable {
 		private int brokerId;
@@ -114,7 +114,7 @@ public class ClientGUI {
 				Vector<String> bots = new Vector<String>();
 				for (Class<?> cls : getClassesForPackage(Package.getPackage("at.ac.univie.dse2016.stream.clientapp"))) {
 					if (cls.getSuperclass() == at.ac.univie.dse2016.stream.clientapp.Bot.class) {
-					//	bots.addElement(cls.getAnnotation(at.ac.univie.dse2016.stream.clientapp.BotDescription.class).Description() + " <" + cls.getName() + ">");
+						bots.addElement(cls.getAnnotation(at.ac.univie.dse2016.stream.clientapp.BotDescription.class).Description() + " <" + cls.getName() + ">");
 					}
 				}
 				gui.cmbBots.setModel(new DefaultComboBoxModel<String>(bots));
@@ -185,6 +185,7 @@ public class ClientGUI {
 	private JPanel panelMain;
 	private JComboBox<String> cmbBots;
 	private JButton btnStartBot;
+	private JButton btnStopBot;
 	private JTextField txtBoerseServer;
 	private JTextField txtBoerseRMIPort;
 	private JTextField txtBoerseUDPPort;
@@ -233,11 +234,11 @@ public class ClientGUI {
 	protected void UpdateControls() {
 		boolean connected =  (boersePublic != null);
 
-		this.listAccountEmittents.setEnabled(connected);
-		this.listAuftraege.setEnabled(connected);
-		//this.listUDP.setEnabled(connected);
-		this.cmbEmittentSection.setEnabled(connected);
-		this.btnAccept.setEnabled(connected);
+		this.listAccountEmittents.setEnabled(connected && this.bot == null);
+		this.listAuftraege.setEnabled(connected && this.bot == null);
+		this.listUDP.setEnabled(connected && this.bot == null);
+		this.cmbEmittentSection.setEnabled(connected && this.bot == null);
+		this.btnAccept.setEnabled(connected && this.bot == null);
 		
 		this.txtBoerseServer.setEditable(!connected);
 		this.txtBoerseSOAPServer.setEditable(!connected);
@@ -247,9 +248,11 @@ public class ClientGUI {
 		this.txtBrokerRMIServer.setEditable(!connected);
 		this.txtBrokerRMIPort.setEditable(!connected);
 		
+		this.btnStopBot.setEnabled(connected && this.bot != null);
 		this.btnStartBot.setEnabled(connected && this.cmbBots.getSelectedItem() != null);
 	}
 		
+	@SuppressWarnings({ "unchecked", "rawtypes" })
 	protected void Connect() {
 		try {
 	        Registry registryBoerse = LocateRegistry.getRegistry(this.txtBoerseServer.getText(), Integer.valueOf(this.txtBoerseRMIPort.getText()));
@@ -291,7 +294,20 @@ public class ClientGUI {
 
 	}
 	
+	@SuppressWarnings("rawtypes")
 	protected void Disconnect() {
+		
+		//stop current UDP Listener
+		if (execUDP != null)
+			execUDP.shutdown();
+		execUDP = null;
+		
+        this.auftraege.clear();
+        this.aktiveAuftrage.removeAllElements();
+
+        ((javax.swing.DefaultComboBoxModel<String>) this.listAccountEmittents.getModel()).removeAllElements();
+        ((javax.swing.DefaultListModel<String>) this.listUDP.getModel()).removeAllElements();
+                
 		this.brokerClient = null;
 		this.boersePublic = null;
 		this.stopFeedUDP();
@@ -299,9 +315,12 @@ public class ClientGUI {
 	}
 	
 	
+	
+	
 	protected void cancelOrder() {
 		try {
 			this.brokerClient.auftragCancel(this.clientId, this.listAuftraege.getSelectedValue().getId());
+			this.UpdateClientInfo();
 		}
 		catch(Exception e) {
 			e.printStackTrace();
@@ -326,14 +345,15 @@ public class ClientGUI {
 	        
 	        
 	        this.listAccountEmittents.setModel( new javax.swing.DefaultComboBoxModel( vek ) );
-	        auftraege.clear();
+	        this.auftraege.clear();
 	        this.aktiveAuftrage.clear();
 	        
 	        java.util.TreeSet<Auftrag> els = this.brokerClient.getAuftraege(this.clientId);
 	        if (els != null) {
 		        for (Auftrag a : els) {
-		        	auftraege.put(a.getId(), a);
-		        	this.aktiveAuftrage.addElement(a);
+		        	this.auftraege.put(a.getId(), a);
+		        	if (a.getStatus() == AuftragStatus.Accepted || a.getStatus() == AuftragStatus.TeilweiseBearbeitet)
+		        		this.aktiveAuftrage.addElement(a);
 		        }
 	        }
 	        
@@ -392,7 +412,7 @@ public class ClientGUI {
 		    	 remoteHostBroker, remotePortRMIBroker) 
 		);
 		
-		/*
+		/*/
 		EventQueue.invokeLater(new Runnable() {			
 			public void run() {	
 				try {		
@@ -405,7 +425,8 @@ public class ClientGUI {
 				} catch (Exception e) {					e.printStackTrace();				
 				}		
 				}		
-			});*/
+			});
+			*/
 	}
 
 	/**
@@ -568,8 +589,7 @@ public class ClientGUI {
 		JButton btnDisconnect = new JButton("Disconnect");
 		btnDisconnect.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				boersePublic = null;
-				UpdateClientInfo();
+				Disconnect();
 			}
 		});
 		btnDisconnect.setEnabled(true);
@@ -651,6 +671,7 @@ public class ClientGUI {
 		cmbEmittentSection = new JComboBox<Emittent>();
 		cmbEmittentSection.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
+				((javax.swing.DefaultComboBoxModel<String>) listUDP.getModel()).removeAllElements();
 				getFeedUDP();
 			}
 		});
@@ -712,7 +733,10 @@ public class ClientGUI {
 					else
 						auftrag = new Auftrag(clientId, rdbtnKaufen.isSelected(), ((Emittent)cmbEmittent.getSelectedItem()).getTicker(), Integer.valueOf(txtAnzahl.getText()), Float.valueOf(txtBedingung.getText()));
 					int auftragId = brokerClient.auftragAddNew(clientId, auftrag);
-					aktiveAuftrage.addElement(new Auftrag(auftragId, auftrag.getOwnerId(), auftrag.getKaufen(), auftrag.getTicker(), auftrag.getAnzahl(), auftrag.getBedingung()) );
+System.out.println( "addnewAuftragID = " + auftragId );
+
+					auftraege.put(auftragId, new Auftrag(auftragId, auftrag.getOwnerId(), auftrag.getKaufen(), auftrag.getTicker(), auftrag.getAnzahl(), auftrag.getBedingung()));
+					aktiveAuftrage.addElement( auftraege.get(auftragId) );
 					txtAnzahl.setText("");
 					txtBedingung.setText("");
 					
@@ -748,27 +772,18 @@ public class ClientGUI {
 		frmClientInterface.getContentPane().add(cmbBots);
 		
 		btnStartBot = new JButton("Start Bot");
-		btnStartBot.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				//listAuftraege.;
-			}
-		});
+		btnStartBot.addActionListener(this);
 		btnStartBot.setBounds(393, 10, 89, 23);
 		frmClientInterface.getContentPane().add(btnStartBot);
 		
-		JButton btnStopBot = new JButton("Stop Bot");
+		btnStopBot = new JButton("Stop Bot");
 		btnStopBot.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				javax.swing.JPopupMenu popup = new javax.swing.JPopupMenu();
-				javax.swing.JMenuItem menuItem = new javax.swing.JMenuItem("A popup menu item");
-			    menuItem.addActionListener(this);
-			    popup.add(menuItem);
-			    
-			    //javax.swing.MouseListener popupListener = new javax.swing.PopupListener();
-			    //output.addMouseListener(popupListener);
-			    //menuBar.addMouseListener(popupListener);
+				if (bot != null)
+					bot.Stop();
+				bot = null;
 				
-				 
+				UpdateControls();
 			}
 		});
 		btnStopBot.setBounds(492, 10, 89, 23);
@@ -779,11 +794,21 @@ public class ClientGUI {
 	}
 	
 	public void actionPerformed(ActionEvent e) {
-		//if (e.getSource() == this.btnAccept)
+		String name = (String)cmbBots.getSelectedItem();
+		name = name.substring(name.indexOf('<')+1, name.indexOf('>'));
+System.out.println( "START BOT = " + name );
+		bot = getBotByName(name);
+		
+		bot.setClientGUI(this);
+		bot.InitValues();
+		bot.Start();
+		
+		this.UpdateControls();
+		/*
 		 
 		JOptionPane.showMessageDialog(null, aktiveAuftrage.size());
 		this.UpdateControls();
-		
+		*/
 	}
 
 	
@@ -798,6 +823,7 @@ public class ClientGUI {
 	
 	//Emittents, die via UDP abgehoert sind
 	private Integer[] udpEmittentIds;
+	private int udpEmittentIdActive;
 	//UDP Counters - Fehlererkennung
 	private java.util.TreeMap< Integer /* emittentId */, Integer > udpCounters;
 
@@ -809,6 +835,9 @@ public class ClientGUI {
 		Integer[] emittentIds = new Integer[1];
 		emittentIds[0] = ((Emittent)this.cmbEmittentSection.getSelectedItem()).getId();
 		
+//System.out.println( "emittentIds[0]=" + emittentIds[0] );
+		
+		this.udpEmittentIdActive = 0;
 		getFeedUDP(emittentIds);
 	}
 	
@@ -825,6 +854,7 @@ public class ClientGUI {
 			execUDP.shutdown();
 
 		this.udpEmittentIds = emittentIds;
+		this.sessionId = -1;
 		
 		this.aktiveUDP.clear();
 		
@@ -892,7 +922,8 @@ public class ClientGUI {
 	    }   
 	    catch (SocketException e){
 	        System.err.println("Socket: " + e.getMessage());
-	        e.printStackTrace();
+	        //e.printStackTrace();
+	        return;
 	    }
 	    catch (IOException e){
 	    	System.err.println("IO: " + e.getMessage());
@@ -912,9 +943,12 @@ public class ClientGUI {
 	
 	private void processFeedMsg(FeedMsg feedMsg) {
 		
-		System.out.println( "get feed = " + feedMsg.getCounter() + " " + feedMsg.getAnzahl() +  " " + feedMsg.getPrice() + " " + feedMsg.getId()  + " " + feedMsg.getId2() + " " +  feedMsg.getStatus() );
+		if (this.bot != null)
+			this.bot.processFeedMsg(feedMsg);
+		
+System.out.println( "get feed = " + feedMsg.getCounter() + " " + feedMsg.getAnzahl() +  " " + feedMsg.getPrice() + " " + feedMsg.getId()  + " " + feedMsg.getId2() + " " +  feedMsg.getStatus() );
 
-		if (feedMsg.getStatus().equals(AuftragStatus.Bearbeitet) || feedMsg.getStatus().equals(AuftragStatus.TeilweiseBearbeitet))
+		if (this.udpEmittentIds[this.udpEmittentIdActive].equals( feedMsg.getTickerId() ) && ( feedMsg.getStatus().equals(AuftragStatus.Bearbeitet) || feedMsg.getStatus().equals(AuftragStatus.TeilweiseBearbeitet) ) )
 			txtLastTransaction.setText(feedMsg.getAnzahl() + " items, price=" + feedMsg.getPrice() );
 
 		if (feedMsg.getCounter().equals(-1) && feedMsg.getAnzahl().equals(0)) {
@@ -924,8 +958,6 @@ public class ClientGUI {
 		}
 
 
-
-		
 		//Fehlererkennung
 		if (!(this.udpCounters.get(feedMsg.getTickerId()).equals(-1))) {
 
@@ -964,16 +996,16 @@ public class ClientGUI {
 			
 		}
 		
-		if (feedMsg.getId() != -1)
+		if (!feedMsg.getId().equals(-1))
 			processFeedMsgAuftrag(feedMsg, false);
-		if (feedMsg.getId2() != -1)
+		if (!feedMsg.getId2().equals(-1))
 			processFeedMsgAuftrag(feedMsg, true);
 	}
 
 	private void updateUDPGlass() {
 		final int itemsCount = 5;
 		
-		Vector<String> itemsUDP = new Vector<String>();
+		aktiveUDP.removeAllElements();
 		
 		FeedMsgUDP[] sorted = this.feedMsgs.values().toArray(new FeedMsgUDP[this.feedMsgs.values().size()]); 
 		
@@ -985,7 +1017,7 @@ public class ClientGUI {
 		        else if (o1.Buy && o2.Buy) {
 		        	if (o2.Price == o1.Price)
 		        		return 0;
-		        	else if (o2.Price > o1.Price)
+		        	else if (o2.Price < o1.Price)
 		        		return -1;
 		        	else
 		        		return 1;
@@ -1023,10 +1055,10 @@ public class ClientGUI {
 		System.out.println( sorted.length +  " updateUDPGlass from " + start + " till " + finish );
 
 		for (int i = start; i < finish; ++i) {
-			itemsUDP.addElement(sorted[i].toString());
+			aktiveUDP.addElement(sorted[i].toString());
 		}
 
-		this.listUDP.setModel(new DefaultComboBoxModel<String>(itemsUDP));
+		//this.listUDP.setModel(new DefaultComboBoxModel<String>(itemsUDP));
 //		JOptionPane.showMessageDialog(null, "ok");
 	}
 	
@@ -1043,19 +1075,19 @@ public class ClientGUI {
 			status = feedMsg.getStatus();
 		}
 		
-		System.out.println( "processFeedMsg Auftrag , auftragId= " + id + ", status= " + status + " " + feedMsg.getId2() );
+System.out.println( "processFeedMsg Auftrag , auftragId= " + id + ", status= " + status + " " + feedMsg.getId2() );
 
 System.out.println( "this.auftraege.containsKey(id)=" + this.auftraege.containsKey(id) );
 
 		//search if this Auftrag Data is our Client Auftrag 
-		if (this.auftraege.containsKey(id)) {
+		if ( this.auftraege.containsKey(id) ) {
 			this.UpdateClientInfo();
 		}
 		
 System.out.println( "this.feedMsgs.containsKey(id)=" + this.feedMsgs.containsKey(id) );
-		if (this.feedMsgs.containsKey(id) && (status.equals(AuftragStatus.TeilweiseBearbeitet)) && (status.equals(AuftragStatus.Bearbeitet))) {
+		if (this.feedMsgs.containsKey(id) && (status.equals(AuftragStatus.TeilweiseBearbeitet)) || (status.equals(AuftragStatus.Bearbeitet))) {
 			if (status.equals(AuftragStatus.TeilweiseBearbeitet))
-				this.feedMsgs.get(id).Amount = feedMsg.getAnzahl();
+				this.feedMsgs.get(id).Amount -= feedMsg.getAnzahl();
 			else
 				this.feedMsgs.remove(id);
 			
@@ -1104,7 +1136,17 @@ System.out.println( "this.feedMsgs.containsKey(id)=" + this.feedMsgs.containsKey
 	
 	
 	
-	
+	public static Bot getBotByName(String name) {
+		try {
+			Class<?> clazz = Class.forName(name);
+			Bot bot = (Bot)clazz.newInstance();
+			return bot;
+		}
+		catch(Exception e) {	
+			e.printStackTrace();
+		}
+		return null;
+	}
 	
 	private static ArrayList<Class<?>> getClassesForPackage(Package pkg) {
 	    String pkgname = pkg.getName();

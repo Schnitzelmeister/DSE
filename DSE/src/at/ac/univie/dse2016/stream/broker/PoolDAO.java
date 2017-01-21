@@ -37,13 +37,13 @@ public class PoolDAO {
 	/*
 	 * Als Parameter muss man den Pfad vom Verzeichnis mit Daten uebergeben
 	 */
-	public PoolDAO(String dataDir) throws IllegalArgumentException {
+	public PoolDAO(int brokerId, String dataDir) throws IllegalArgumentException {
 
 	    if ( !java.nio.file.Files.exists( java.nio.file.Paths.get(dataDir) ) )
 	    	throw new IllegalArgumentException("Illegal Data Directory Path " + dataDir);
 		
-	    clientDAO = new UniversalDAO<Client>(dataDir + "/client.dao");
-	    auftragDAO = new AuftragDAO(dataDir + "/auftrag.dao", true);
-	    transactionDAO = new TransactionDAO(dataDir + "/transaction.dao");
+	    clientDAO = new UniversalDAO<Client>(dataDir + "/client_" + brokerId + ".dao");
+	    auftragDAO = new AuftragDAO(dataDir + "/auftrag_" + brokerId + ".dao", true);
+	    transactionDAO = new TransactionDAO(dataDir + "/transaction_" + brokerId + ".dao");
 	}
 }

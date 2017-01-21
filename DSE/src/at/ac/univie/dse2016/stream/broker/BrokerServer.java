@@ -46,7 +46,7 @@ public class BrokerServer implements BrokerAdmin, BrokerClient {
 		this.remoteRESTHost = remoteRESTHost;
 		
 		//init DAO
-		this.poolDAO = new PoolDAO( path );
+		this.poolDAO = new PoolDAO( this.brokerId, path );
 		System.out.println("Path to DATA Folder = "+ path);
 		System.out.println("Die Daten werden in diesem Folder gespeichert");
 

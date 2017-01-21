@@ -6,8 +6,10 @@ import java.util.Random;
  * Es gibt ZielMarktPreise, die der Investor selbst kalkuliert (sie sind im emittentZielMarktPrices)
  * Je staerke der MarktPreis von emittentZielMarktPrices abweicht und mehr Geld der Investor hat, desto mehr die Wahrscheinlichkeit, dass der Bot die Aktien kauft/verkauft
  */
-//@BotDescription(Description = "My simple Bot")
+@BotDescription(Description = "My simple Bot")
 public class MyBot extends Bot {
+	private boolean status;
+	
 	public String getName() {
 		return "MyBot";
 	}
@@ -27,7 +29,12 @@ public class MyBot extends Bot {
 	}
 	
 	public void Start() {
+		this.status = true;
 		Random randomGenerator = new Random();
+		
+		while (this.status) {
+			
+		}
 		
 		float price = 21;
 		float zielPrice = emittentZielMarktPrices.get(1);
@@ -43,6 +50,6 @@ public class MyBot extends Bot {
 	}
 	
 	public void Stop() {
-		
+		this.status = false;
 	}
 }

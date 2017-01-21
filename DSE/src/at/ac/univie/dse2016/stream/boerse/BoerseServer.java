@@ -123,9 +123,11 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 	 * Edit Broker, Admin's Function
 	 */
 	public void brokerEdit(Broker broker) throws RemoteException, IllegalArgumentException {
+System.out.println( broker.getId() + " brokerEdit = " + broker.getName().toString() );
 		synchronized(this.poolDAO.getBrokerDAO()) {
 			this.poolDAO.getBrokerDAO().speichereItem(broker);
 		}
+		System.out.println(this.poolDAO.getBrokerDAO().getItemById(2).getName() );
 	}
 	
 	/**
@@ -141,6 +143,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 	 * Get all Brokers, Admin's Function
 	 */
 	public java.util.ArrayList<Broker> getBrokersList() throws RemoteException {
+System.out.println( this.poolDAO.getBrokerDAO().getItems().values() );
 		return new java.util.ArrayList<Broker>(this.poolDAO.getBrokerDAO().getItems().values());
 	}
 	
@@ -323,7 +326,7 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 		Auftrag auftrag = this.poolDAO.getAuftragDAO().getItemById(newAuftragId);
 		Integer tickerId = this.poolDAO.getEmittentDAO().getEmittentByTicker( auftrag.getTicker() ).getId();
 		boolean buy = auftrag.getKaufen();
-		int anzahl = auftrag.getAnzahl();
+		int anzahl = auftrag.getAnzahl().intValue();
 		float bedingung = auftrag.getBedingung();
 		Integer bedingungInteger = Math.round(bedingung * 10000);	//es ist zulaessig nur 4 Ziffern nach der Komma zu stellen
 		
@@ -414,16 +417,18 @@ System.out.println( buy +  " emittentSection.sell.size() == 0  "+ bedingung  );
 									return;
 								}
 								//kein Emittent bei Verkauefer - sollte unmoeglich sein
-								else if (secondBroker.getDisponibleAccountEmittents().get(tickerId) < a.getAnzahl()) {
+								else if (secondBroker.getDisponibleAccountEmittents().get(tickerId).intValue() < a.getAnzahl().intValue()) {
 									throw new IllegalArgumentException("BOERSE ERROR - kein Emittent bei Verkauefer - sollte unmoeglich sein!!!");
 								}
 								//commit ganz
-								else if (anzahl <= a.getAnzahl()) {
+								else if (anzahl <= a.getAnzahl().intValue()) {
 									committed = true;
-									
+System.out.println( "anzahl = " + anzahl );
+System.out.println( "a.getAnzahl().intValue() = " + a.getAnzahl().intValue() );
+
 									//commit transaction
-									commitAuftrage(auftrag, broker, (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.Accepted, 
-												a, secondBroker, (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.TeilweiseBearbeitet, 
+									commitAuftrage(auftrag, broker, AuftragStatus.Bearbeitet, 
+												a, secondBroker, (a.getAnzahl().equals(anzahl)) ? AuftragStatus.Bearbeitet : AuftragStatus.TeilweiseBearbeitet, 
 												tickerId, a.getBedingung(), anzahl, buy, emittentSection.msgCounter.incrementAndGet(), (bedingung > 0)
 											);
 									
@@ -457,16 +462,16 @@ System.out.println( buy +  " emittentSection.sell.size() == 0  "+ bedingung  );
 										throw new IllegalArgumentException("BOERSE ERROR - kein Geld mehr bei Kauefer - sollte unmoeglich sein!!!");
 									}
 									//kein Emittent bei Verkauefer - sollte unmoeglich sein
-									else if (secondBroker.getDisponibleAccountEmittents().get(tickerId) < a.getAnzahl()) {
+									else if (secondBroker.getDisponibleAccountEmittents().get(tickerId).intValue() < a.getAnzahl().intValue()) {
 										throw new IllegalArgumentException("BOERSE ERROR - kein Emittent bei Verkauefer - sollte unmoeglich sein!!!");
 									}
 									//commit ganz
-									else if (anzahl <= a.getAnzahl()) {
+									else if (anzahl <= a.getAnzahl().intValue()) {
 										committed = true;
 
 										//commit transaction
 										commitAuftrage(auftrag, broker, AuftragStatus.Bearbeitet, 
-													a, secondBroker, (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.TeilweiseBearbeitet, 
+													a, secondBroker, (a.getAnzahl().equals(anzahl)) ? AuftragStatus.Bearbeitet : AuftragStatus.TeilweiseBearbeitet, 
 													tickerId, a.getBedingung(), anzahl, buy, emittentSection.msgCounter.incrementAndGet(), (bedingung > 0)
 												);
 										
@@ -515,7 +520,7 @@ System.out.println( buy +  " emittentSection.sell.size() == 0  "+ bedingung  );
 							// Marketpreis, ohne Bedingung
 							if ( bedingung == -1 ) {
 								//kein Emittent bei Kauefer - sollte unmoeglich sein
-								if (broker.getDisponibleAccountEmittents().get(tickerId) < auftrag.getAnzahl()) {
+								if (broker.getDisponibleAccountEmittents().get(tickerId).intValue() < auftrag.getAnzahl().intValue()) {
 									throw new IllegalArgumentException("BOERSE ERROR - kein Emittent bei Kauefer - sollte unmoeglich sein!!!");
 								}
 								//kein Geld bei Verkauefer - sollte unmoeglich sein
@@ -523,12 +528,12 @@ System.out.println( buy +  " emittentSection.sell.size() == 0  "+ bedingung  );
 									throw new IllegalArgumentException("BOERSE ERROR - kein Geld bei Verkauefer - sollte unmoeglich sein!!!");
 								}
 								//commit ganz
-								else if (anzahl <= a.getAnzahl()) {
+								else if (anzahl <= a.getAnzahl().intValue()) {
 									committed = true;
 									
 									//commit transaction
 									commitAuftrage(auftrag, broker, AuftragStatus.Bearbeitet, 
-												a, secondBroker, (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.TeilweiseBearbeitet, 
+												a, secondBroker, (a.getAnzahl().equals(anzahl)) ? AuftragStatus.Bearbeitet : AuftragStatus.TeilweiseBearbeitet, 
 												tickerId, a.getBedingung(), anzahl, buy, emittentSection.msgCounter.incrementAndGet(), (bedingung > 0)
 											);
 									
@@ -556,20 +561,20 @@ System.out.println( buy +  " emittentSection.sell.size() == 0  "+ bedingung  );
 								//bedingung passt
 								if (a.getBedingung() >= bedingung) {
 									//kein Emittent bei Kauefer - sollte unmoeglich sein
-									if (broker.getDisponibleAccountEmittents().get(tickerId) < auftrag.getAnzahl()) {
+									if (broker.getDisponibleAccountEmittents().get(tickerId).intValue() < auftrag.getAnzahl().intValue()) {
 										throw new IllegalArgumentException("BOERSE ERROR - kein Emittent bei Kauefer - sollte unmoeglich sein!!!");
 									}
 									//kein Geld bei Verkauefer - sollte unmoeglich sein
-									else if (secondBroker.getDisponibelstand() < a.getBedingung() * a.getAnzahl()) {
+									else if (secondBroker.getDisponibelstand() < a.getBedingung() * a.getAnzahl().intValue()) {
 										throw new IllegalArgumentException("BOERSE ERROR - kein Geld bei Verkauefer - sollte unmoeglich sein!!!");
 									}
 									//commit ganz
-									else if (anzahl <= a.getAnzahl()) {
+									else if (anzahl <= a.getAnzahl().intValue()) {
 										committed = true;
 										
 										//commit transaction
 										commitAuftrage(auftrag, broker, AuftragStatus.Bearbeitet, 
-													a, secondBroker, (a.getAnzahl() == anzahl) ? AuftragStatus.Bearbeitet : AuftragStatus.TeilweiseBearbeitet, 
+													a, secondBroker, (a.getAnzahl().equals(anzahl)) ? AuftragStatus.Bearbeitet : AuftragStatus.TeilweiseBearbeitet, 
 													tickerId, a.getBedingung(), anzahl, buy, emittentSection.msgCounter.incrementAndGet(), (bedingung > 0)
 												);
 										
@@ -1040,13 +1045,16 @@ System.out.println( buy +  " emittentSection.sell.size() == 0  "+ bedingung  );
 	    		
 	    		//remove old Sessions, wenn they are 20 seconds not active
 	    		java.util.Calendar calendar = java.util.Calendar.getInstance();
-	    		calendar.add(java.util.Calendar.SECOND, 20);
-	    		if ( s.lastConnectionTime.after(calendar.getTime()) ) {
+	    		calendar.add(java.util.Calendar.SECOND, -20);
+	    		Date dateThreshold = calendar.getTime();
+//System.out.println( "now="  + java.util.Calendar.getInstance().getTime() +  "  s.lastConnectionTime = " +s.lastConnectionTime + " dateThreshold " + dateThreshold  + " s.lastConnectionTime.compareTo( dateThreshold )= " + s.lastConnectionTime.compareTo( dateThreshold ) );
+	    		if ( s.lastConnectionTime.compareTo( dateThreshold ) < 0 ) {
 	    			it.remove();
+//System.out.println( "remove" );
 	    		}
 	    		else {
 	    		
-	    			System.out.println( "send msg = " + msg.getPrice() + " " + msg.getStatus()  + " " + msg.getKaufen()  + " " + msg.getTickerId()  + " TO " + s.address + ":" + s.port );
+System.out.println( "send msg = " + msg.getPrice() + " " + msg.getStatus()  + " " + msg.getKaufen()  + " " + msg.getTickerId()  + " TO " + s.address + ":" + s.port );
 	    			
 					//Send FeedMsg async
 					new Thread(new java.lang.Runnable() {
@@ -1118,7 +1126,7 @@ System.out.println( buy +  " emittentSection.sell.size() == 0  "+ bedingung  );
 		    boolean newSession = !this.activeUDPSessions.containsKey(sessionId);
 		    UDPSession sessionUDP;
 
-			System.out.println( "processFeedRequest="  + sessionId + " , newSession= " + newSession );
+			//System.out.println( "processFeedRequest="  + sessionId + " , newSession= " + newSession );
 
 		    if (newSession) {
 		    	sessionId = sessionCounter.incrementAndGet();
@@ -1259,9 +1267,9 @@ System.out.println( sessionId + " bosReal.toByteArray() = " + bosReal.size() );
             broker.start();
 
             ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(messageBrokerUrl);
-			connectionFactory.setTrustAllPackages(true);
-
-			try {
+            connectionFactory.setTrustAllPackages(true);
+            
+            try {
                 connection = connectionFactory.createConnection();
                 connection.setExceptionListener(this); 
                 connection.start();
