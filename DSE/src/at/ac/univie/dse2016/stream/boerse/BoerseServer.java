@@ -123,11 +123,9 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
 	 * Edit Broker, Admin's Function
 	 */
 	public void brokerEdit(Broker broker) throws RemoteException, IllegalArgumentException {
-System.out.println( broker.getId() + " brokerEdit = " + broker.getName().toString() );
 		synchronized(this.poolDAO.getBrokerDAO()) {
 			this.poolDAO.getBrokerDAO().speichereItem(broker);
 		}
-		System.out.println(this.poolDAO.getBrokerDAO().getItemById(2).getName() );
 	}
 	
 	/**
@@ -143,7 +141,6 @@ System.out.println( broker.getId() + " brokerEdit = " + broker.getName().toStrin
 	 * Get all Brokers, Admin's Function
 	 */
 	public java.util.ArrayList<Broker> getBrokersList() throws RemoteException {
-System.out.println( this.poolDAO.getBrokerDAO().getItems().values() );
 		return new java.util.ArrayList<Broker>(this.poolDAO.getBrokerDAO().getItems().values());
 	}
 	
@@ -411,20 +408,25 @@ System.out.println( buy +  " emittentSection.sell.size() == 0  "+ bedingung  );
 							if ( bedingung == -1 ) {
 								//kein Geld mehr bei Kauefer
 								if (broker.getDisponibelstand() < a.getBedingung()) {
-									if (!committed)
+									if (committed) 
+										auftrag.setStatus(AuftragStatus.Bearbeitet);
+									else
+										auftrag.setStatus(AuftragStatus.Canceled);
+									if (!committed) 
 										throw new IllegalArgumentException("Not enough money");
 
 									return;
 								}
 								//kein Emittent bei Verkauefer - sollte unmoeglich sein
 								else if (secondBroker.getDisponibleAccountEmittents().get(tickerId).intValue() < a.getAnzahl().intValue()) {
+									auftrag.setStatus(AuftragStatus.Canceled);
 									throw new IllegalArgumentException("BOERSE ERROR - kein Emittent bei Verkauefer - sollte unmoeglich sein!!!");
 								}
 								//commit ganz
 								else if (anzahl <= a.getAnzahl().intValue()) {
 									committed = true;
-System.out.println( "anzahl = " + anzahl );
-System.out.println( "a.getAnzahl().intValue() = " + a.getAnzahl().intValue() );
+//System.out.println( "anzahl = " + anzahl );
+//System.out.println( "a.getAnzahl().intValue() = " + a.getAnzahl().intValue() );
 
 									//commit transaction
 									commitAuftrage(auftrag, broker, AuftragStatus.Bearbeitet, 
@@ -521,10 +523,12 @@ System.out.println( "a.getAnzahl().intValue() = " + a.getAnzahl().intValue() );
 							if ( bedingung == -1 ) {
 								//kein Emittent bei Kauefer - sollte unmoeglich sein
 								if (broker.getDisponibleAccountEmittents().get(tickerId).intValue() < auftrag.getAnzahl().intValue()) {
+									auftrag.setStatus(AuftragStatus.Canceled);
 									throw new IllegalArgumentException("BOERSE ERROR - kein Emittent bei Kauefer - sollte unmoeglich sein!!!");
 								}
 								//kein Geld bei Verkauefer - sollte unmoeglich sein
 								else if (secondBroker.getDisponibelstand() < a.getBedingung() * a.getAnzahl()) {
+									auftrag.setStatus(AuftragStatus.Canceled);
 									throw new IllegalArgumentException("BOERSE ERROR - kein Geld bei Verkauefer - sollte unmoeglich sein!!!");
 								}
 								//commit ganz
@@ -649,6 +653,10 @@ System.out.println( "a.getAnzahl().intValue() = " + a.getAnzahl().intValue() );
 					sendFeedMsg(new FeedMsg(emittentSection.msgCounter.incrementAndGet(), newAuftragId, tickerId, auftrag.getKaufen(), anzahl, auftrag.getBedingung()/*preis*/, /*status*/AuftragStatus.Accepted));
 		    	}
 		    	else {
+		    		if (committed)
+		    			auftrag.setStatus(AuftragStatus.Bearbeitet);
+		    		else
+		    			auftrag.setStatus(AuftragStatus.Canceled);
 					if (_map.size() == 0)
 						throw new IllegalArgumentException("No Orders");
 		    		if (!committed)
@@ -656,6 +664,9 @@ System.out.println( "a.getAnzahl().intValue() = " + a.getAnzahl().intValue() );
 		    	}
 			}
 		}
+		
+System.out.println( " STATUS =  " +auftrag.getStatus() );
+
 	}
 
 	private void commitAuftrage(Auftrag auftrag1, Broker broker1, AuftragStatus status1, Auftrag auftrag2, Broker broker2, AuftragStatus status2, int tickerId, float preis, int anzahl, boolean buy, int msgCounter, boolean bedingung) {
@@ -663,7 +674,7 @@ System.out.println( "a.getAnzahl().intValue() = " + a.getAnzahl().intValue() );
 		System.out.println( "transaction: " + auftrag1.getId() + " and  " + auftrag2.getId() + ", preis: " + preis + ", anzahl: " + anzahl + ", " + status1 + " and " + status2 );
 		System.out.println( "brokers: " + broker1.getName() + " and  " + broker2.getName() );
 		
-		
+		/*
 		try {
 		for(Broker cl : this.getBrokersList()) {
 			  System.out.println(cl + " => " + cl.getDisponibelstand() + ", " + cl.getKontostand());
@@ -677,7 +688,7 @@ System.out.println( "a.getAnzahl().intValue() = " + a.getAnzahl().intValue() );
 
 			}
 		}
-		catch (Exception e) {}
+		catch (Exception e) {}*/
 		
 		float sum = preis * anzahl;
 		if (buy) {
@@ -722,7 +733,7 @@ System.out.println( "a.getAnzahl().intValue() = " + a.getAnzahl().intValue() );
 		if (status2 == AuftragStatus.Bearbeitet)
 			auftrag2.setStatus(status2);
 
-				  System.out.println("after");
+		/*		  System.out.println("after");
 		try {
 		for(Broker cl : this.getBrokersList()) {
 			  System.out.println(cl + " => " + cl.getDisponibelstand() + ", " + cl.getKontostand());
@@ -737,13 +748,14 @@ System.out.println( "a.getAnzahl().intValue() = " + a.getAnzahl().intValue() );
 			}
 		}
 		catch (Exception e) {}
-		
+		*/
 		//send asynchrone
 		sendFeedMsg(new FeedMsg(msgCounter, auftrag1.getId(), tickerId, buy, anzahl, preis, status1, auftrag2.getId(), status2));
 
 		//save transactions to log
 		this.poolDAO.getTransactionDAO().speichereItem(new Transaction(auftrag1.getId(), auftrag2.getId(), anzahl, preis));
 		
+		/*
 		try {
 		for(Broker cl : this.getBrokersList()) {
 			  System.out.println(cl + " => " + cl.getDisponibelstand() + ", " + cl.getKontostand());
@@ -764,6 +776,37 @@ System.out.println( "a.getAnzahl().intValue() = " + a.getAnzahl().intValue() );
 
 			}
 		
+		}
+		catch (Exception e) {}*/
+		
+		
+		//consistency check
+		try {
+			
+			float totalGeld = 0;
+			java.util.TreeMap<Integer,Integer> totalEmittents = new java.util.TreeMap<Integer,Integer>();
+		
+			for(Broker cl : this.getBrokersList()) {
+				
+				totalGeld += cl.getKontostand();
+			  
+				for(java.util.Map.Entry<Integer,Integer> entry : cl.getAccountEmittents().entrySet()) {
+					Integer key = entry.getKey();
+					Integer value = entry.getValue();
+					
+					if (totalEmittents.containsKey(key))
+						value += totalEmittents.get(key);
+					totalEmittents.put(key, value);
+				}
+			}
+			
+		    System.out.println("totalGeld => " + totalGeld);
+			for(java.util.Map.Entry<Integer,Integer> entry : totalEmittents.entrySet()) {
+				Integer key = entry.getKey();
+				Integer value = entry.getValue();
+			    System.out.println("totalEmittents[" + key + "] => " + value);
+			}
+
 		}
 		catch (Exception e) {}
 
@@ -1030,7 +1073,7 @@ System.out.println( "a.getAnzahl().intValue() = " + a.getAnzahl().intValue() );
 	 * Send UDP Feed Message to all Users
 	 */
 	private void sendFeedMsg(FeedMsg msg) {
-    	System.out.println( "send msg msgid = " + msg.getId() );
+//    	System.out.println( "send msg msgid = " + msg.getId() );
 
 	    try {
 		    ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -1054,7 +1097,7 @@ System.out.println( "a.getAnzahl().intValue() = " + a.getAnzahl().intValue() );
 	    		}
 	    		else {
 	    		
-System.out.println( "send msg = " + msg.getPrice() + " " + msg.getStatus()  + " " + msg.getKaufen()  + " " + msg.getTickerId()  + " TO " + s.address + ":" + s.port );
+//System.out.println( "send msg = " + msg.getPrice() + " " + msg.getStatus()  + " " + msg.getKaufen()  + " " + msg.getTickerId()  + " TO " + s.address + ":" + s.port );
 	    			
 					//Send FeedMsg async
 					new Thread(new java.lang.Runnable() {
@@ -1090,7 +1133,7 @@ System.out.println( "send msg = " + msg.getPrice() + " " + msg.getStatus()  + " 
 	 * Send UDP DatagramPacket for UDPSession
 	 */
 	private void sendUDPMsg(UDPSession session, ByteArrayOutputStream bos) {
-    	System.out.println( "sendUDPMsg" );
+//    	System.out.println( "sendUDPMsg" );
 	    try {
 	    	DatagramPacket reply = new DatagramPacket(bos.toByteArray(), bos.size(),
 	    			session.address, session.port);
@@ -1167,7 +1210,7 @@ System.out.println( "send msg = " + msg.getPrice() + " " + msg.getStatus()  + " 
 			    				break;
 					    	FeedMsg msg = new FeedMsg(-1, el.getId(), emittentId, el.getKaufen(), el.getAnzahl(), el.getBedingung(), el.getStatus());
 					    	++msgCount;
-System.out.println( sessionId +  " send buffered msg = " + msg.getPrice() );			    		
+//System.out.println( sessionId +  " send buffered msg = " + msg.getPrice() );			    		
 					    	out.writeObject(msg);
 			    		}
 		    			if (count > 5 || msgCount > 250)
@@ -1181,7 +1224,7 @@ System.out.println( sessionId +  " send buffered msg = " + msg.getPrice() );
 			    				break;
 					    	FeedMsg msg = new FeedMsg(-1, el.getId(), emittentId, el.getKaufen(), el.getAnzahl(), el.getBedingung(), el.getStatus());
 					    	++msgCount;
-System.out.println( sessionId + " send buffered msg = " + msg.getPrice() );	    		
+//System.out.println( sessionId + " send buffered msg = " + msg.getPrice() );	    		
 					    	out.writeObject(msg);
 			    		}
 			    		

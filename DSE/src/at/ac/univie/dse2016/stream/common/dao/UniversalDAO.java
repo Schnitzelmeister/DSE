@@ -16,7 +16,7 @@ public class UniversalDAO <T extends PersistableObject> {
 	private String source;
 	private java.util.TreeMap<Integer, T> container;
 	private AtomicInteger idGen;
-	private boolean ignoreConflicts = true;
+	private boolean ignoreConflicts = false;
 
 	public UniversalDAO(String source) throws IllegalArgumentException {
 		this(source, false);
@@ -53,8 +53,14 @@ public class UniversalDAO <T extends PersistableObject> {
 	/**
 	 * Get Container
 	 */
+	@SuppressWarnings("unchecked")
 	public java.util.TreeMap<Integer, T> getItems() {
-		return container;
+		java.util.TreeMap<Integer, T> ret = null;
+		synchronized(this.container)
+		{
+			ret = (java.util.TreeMap<Integer, T>)container.clone();
+		}
+		return ret;
 	}
 	
 	/**
@@ -63,8 +69,10 @@ public class UniversalDAO <T extends PersistableObject> {
 	public T getItemById(int id) throws IllegalArgumentException {
 		if ( !container.containsKey(id) )
 			throw new IllegalArgumentException("Item with id=" + id + " doesn't exist");
-		
-		return container.get(id);
+		synchronized(this.container)
+		{
+			return container.get(id);
+		}
 	}
 	
 	/**
@@ -75,12 +83,18 @@ public class UniversalDAO <T extends PersistableObject> {
 		//add new item, sonst edit
 		if ( item.getId().equals(-1) ) {
 			item.setId(this.idGen.incrementAndGet());
-			this.container.put(item.getId(), item);
+			synchronized(this.container)
+			{
+				this.container.put(item.getId(), item);
+			}
 		}
 		else {
-			if ( ignoreConflicts && !container.containsKey(item.getId()) )
-					throw new IllegalArgumentException("Item with id=" + String.valueOf( item.getId() ) + " doesn't exist");
-			this.container.put(item.getId(), item);
+			if ( !ignoreConflicts && !container.containsKey(item.getId()) )
+				throw new IllegalArgumentException("Item with id=" + String.valueOf( item.getId() ) + " doesn't exist");
+			synchronized(this.container)
+			{
+				this.container.put(item.getId(), item);
+			}
 		}
 
 		save();
@@ -92,8 +106,10 @@ public class UniversalDAO <T extends PersistableObject> {
 	public void loescheItem(T item) throws IllegalArgumentException {
 		if ( !container.containsKey(item.getId()) )
 			throw new IllegalArgumentException("Item with id=" + String.valueOf( item.getId() ) + " doesn't exist");
-		
-		this.container.remove(item.getId());
+		synchronized(this.container)
+		{
+			this.container.remove(item.getId());
+		}
 		save();
 	}
 	
@@ -105,7 +121,10 @@ public class UniversalDAO <T extends PersistableObject> {
 		try
 		{
 			ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(this.source));
-			oos.writeObject(this.container);
+			synchronized(this.container)
+			{
+				oos.writeObject(this.container);
+			}
 			oos.flush();
 			oos.close();
 		}

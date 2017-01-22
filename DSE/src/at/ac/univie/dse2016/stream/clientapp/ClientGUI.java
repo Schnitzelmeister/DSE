@@ -12,11 +12,8 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.ListSelectionModel;
 import javax.swing.ButtonGroup;
-import javax.swing.ComboBoxModel;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -31,6 +28,7 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.ArrayList;
@@ -44,14 +42,10 @@ import java.util.jar.JarFile;
 
 import javax.swing.JLabel;
 import javax.swing.JTextField;
-import javax.swing.border.BevelBorder;
-
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.awt.SystemColor;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
-import javax.swing.JDialog;
 import javax.swing.SwingConstants;
 import javax.swing.JComboBox;
 import javax.swing.JRadioButton;
@@ -212,13 +206,13 @@ public class ClientGUI implements ActionListener {
 	private JList<String> listAccountEmittents;
 
 	private java.util.TreeMap<Integer, FeedMsgUDP> feedMsgs;
-	private java.util.TreeMap<Integer, Integer> accountEmittents;
+	java.util.TreeMap<Integer, Integer> accountEmittents;
 
 	private java.util.TreeMap<String, Emittent> emittents;
-	public Integer emittentIdByTicker(String ticker) {
+	Integer emittentIdByTicker(String ticker) {
 		return emittents.get(ticker).getId();
 	}
-	public String emittentTickerById(int id) {
+	String emittentTickerById(int id) {
 		for (Emittent e : emittents.values())
 			if (e.getId() == id)
 				return e.getTicker();
@@ -226,19 +220,16 @@ public class ClientGUI implements ActionListener {
 		return null;
 	}
 
-//	private javax.swing.DefaultListModel<Emittent> listModelEmittents;
-//	private javax.swing.DefaultListModel<Auftrag> auftraege;
-//	private javax.swing.DefaultListModel<String> kontoEmittents;
-
+	float kontoStand;
 	
 	protected void UpdateControls() {
 		boolean connected =  (boersePublic != null);
 
-		this.listAccountEmittents.setEnabled(connected && this.bot == null);
-		this.listAuftraege.setEnabled(connected && this.bot == null);
-		this.listUDP.setEnabled(connected && this.bot == null);
-		this.cmbEmittentSection.setEnabled(connected && this.bot == null);
-		this.btnAccept.setEnabled(connected && this.bot == null);
+		this.listAccountEmittents.setEnabled(connected /*&& this.bot == null*/);
+		this.listAuftraege.setEnabled(connected/*&& this.bot == null*/);
+		this.listUDP.setEnabled(connected /*&& this.bot == null*/);
+		this.cmbEmittentSection.setEnabled(connected/*&& this.bot == null*/);
+		this.btnAccept.setEnabled(connected/*&& this.bot == null*/);
 		
 		this.txtBoerseServer.setEditable(!connected);
 		this.txtBoerseSOAPServer.setEditable(!connected);
@@ -249,7 +240,7 @@ public class ClientGUI implements ActionListener {
 		this.txtBrokerRMIPort.setEditable(!connected);
 		
 		this.btnStopBot.setEnabled(connected && this.bot != null);
-		this.btnStartBot.setEnabled(connected && this.cmbBots.getSelectedItem() != null);
+		this.btnStartBot.setEnabled(connected && this.cmbBots.getSelectedItem() != null && this.bot == null);
 	}
 		
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -316,17 +307,58 @@ public class ClientGUI implements ActionListener {
 	
 	
 	
-	
-	protected void cancelOrder() {
+	public void auftragAddnew(boolean buy, String ticker, int count, float bedingung, boolean bot) {
 		try {
-			this.brokerClient.auftragCancel(this.clientId, this.listAuftraege.getSelectedValue().getId());
-			this.UpdateClientInfo();
+			Auftrag auftrag;
+			if (bedingung == -1)
+				auftrag = new Auftrag(clientId, buy, ticker, count);
+			else
+				auftrag = new Auftrag(clientId, buy, ticker, count, bedingung);
+			int auftragId = -1;
+			
+			try {
+				auftragId = brokerClient.auftragAddNew(clientId, auftrag);
+			}
+			catch (Exception e) {
+				e.printStackTrace();
+				JOptionPane.showMessageDialog(null, e.getMessage());
+			}
+System.out.println( "addnewAuftragID = " + auftragId + " " +  auftrag.getStatus());
+
+			auftraege.put(auftragId, new Auftrag(auftragId, auftrag.getOwnerId(), auftrag.getKaufen(), auftrag.getTicker(), auftrag.getAnzahl(), auftrag.getBedingung()));
+			if ( auftrag.getStatus().equals(AuftragStatus.Accepted) || auftrag.getStatus().equals(AuftragStatus.TeilweiseBearbeitet) )
+				aktiveAuftrage.addElement( auftraege.get(auftragId) );
+			txtAnzahl.setText("");
+			txtBedingung.setText("");
+			
+			UpdateControls();
 		}
 		catch(Exception e) {
 			e.printStackTrace();
-			JOptionPane.showMessageDialog(null, e.getMessage());
+			if (bot) 
+				txtLastTransaction.setText(e.getMessage());
+			else
+				JOptionPane.showMessageDialog(null, e.getMessage());
 		}
+	}
+	
+	public void cancelOrder(int auftragId, boolean bot) {
+		try {
+			this.brokerClient.auftragCancel(this.clientId, auftragId);
+			if (!bot)
+				this.UpdateClientInfo();
+		}
+		catch(Exception e) {
+			e.printStackTrace();
+			if (bot) 
+				txtLastTransaction.setText(e.getMessage());
+			else
+				JOptionPane.showMessageDialog(null, e.getMessage());
+		}
+	}
 
+	protected void cancelOrder() {
+		cancelOrder(this.listAuftraege.getSelectedValue().getId(), false);
 	}
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -334,7 +366,8 @@ public class ClientGUI implements ActionListener {
 		try {
 			Client clientState = this.brokerClient.getState(clientId);
 	        
-			txtKontoStand.setText( Float.toString(clientState.getKontostand()) );
+			kontoStand = clientState.getKontostand();
+			txtKontoStand.setText( Float.toString(kontoStand) );
 	        
 	        this.accountEmittents.clear();
 	        java.util.Vector vek = new java.util.Vector();
@@ -347,16 +380,17 @@ public class ClientGUI implements ActionListener {
 	        this.listAccountEmittents.setModel( new javax.swing.DefaultComboBoxModel( vek ) );
 	        this.auftraege.clear();
 	        this.aktiveAuftrage.clear();
-	        
+		
+		
 	        java.util.TreeSet<Auftrag> els = this.brokerClient.getAuftraege(this.clientId);
 	        if (els != null) {
 		        for (Auftrag a : els) {
 		        	this.auftraege.put(a.getId(), a);
-		        	if (a.getStatus() == AuftragStatus.Accepted || a.getStatus() == AuftragStatus.TeilweiseBearbeitet)
+		        	if (a.getBedingung() > 0 && ( a.getStatus().equals(AuftragStatus.Accepted) || a.getStatus().equals(AuftragStatus.TeilweiseBearbeitet) ))
 		        		this.aktiveAuftrage.addElement(a);
 		        }
 	        }
-	        
+			
 	        this.listAuftraege.setModel( this.aktiveAuftrage );			
 	        
 	        this.UpdateControls();
@@ -364,7 +398,6 @@ public class ClientGUI implements ActionListener {
 		catch(Exception e) {
 			e.printStackTrace();
 			JOptionPane.showMessageDialog(null, e.getMessage());
-
 		}
 	}
 
@@ -671,7 +704,6 @@ public class ClientGUI implements ActionListener {
 		cmbEmittentSection = new JComboBox<Emittent>();
 		cmbEmittentSection.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				((javax.swing.DefaultComboBoxModel<String>) listUDP.getModel()).removeAllElements();
 				getFeedUDP();
 			}
 		});
@@ -726,26 +758,11 @@ public class ClientGUI implements ActionListener {
 		btnAccept = new JButton("Accept");
 		btnAccept.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				try {
-					Auftrag auftrag;
-					if (txtBedingung.getText().length() == 0)
-						auftrag = new Auftrag(clientId, rdbtnKaufen.isSelected(), ((Emittent)cmbEmittent.getSelectedItem()).getTicker(), Integer.valueOf(txtAnzahl.getText()));
-					else
-						auftrag = new Auftrag(clientId, rdbtnKaufen.isSelected(), ((Emittent)cmbEmittent.getSelectedItem()).getTicker(), Integer.valueOf(txtAnzahl.getText()), Float.valueOf(txtBedingung.getText()));
-					int auftragId = brokerClient.auftragAddNew(clientId, auftrag);
-System.out.println( "addnewAuftragID = " + auftragId );
-
-					auftraege.put(auftragId, new Auftrag(auftragId, auftrag.getOwnerId(), auftrag.getKaufen(), auftrag.getTicker(), auftrag.getAnzahl(), auftrag.getBedingung()));
-					aktiveAuftrage.addElement( auftraege.get(auftragId) );
-					txtAnzahl.setText("");
-					txtBedingung.setText("");
-					
-					UpdateControls();
-				}
-				catch(Exception e) {
-					e.printStackTrace();
-					JOptionPane.showMessageDialog(null, e.getMessage());
-				}
+				float bedingung = -1f;
+				if (txtBedingung.getText().length() != 0)
+					bedingung = Float.valueOf(txtBedingung.getText());
+				
+				auftragAddnew(rdbtnKaufen.isSelected(), ((Emittent)cmbEmittent.getSelectedItem()).getTicker(), Integer.valueOf(txtAnzahl.getText()), bedingung, false);
 			}
 		});
 		btnAccept.setBounds(355, 353, 89, 23);
@@ -822,8 +839,8 @@ System.out.println( "START BOT = " + name );
 	private DatagramSocket socketUDP;
 	
 	//Emittents, die via UDP abgehoert sind
-	private Integer[] udpEmittentIds;
-	private int udpEmittentIdActive;
+	Integer[] udpEmittentIds;
+	int udpEmittentIdActive;
 	//UDP Counters - Fehlererkennung
 	private java.util.TreeMap< Integer /* emittentId */, Integer > udpCounters;
 
@@ -855,7 +872,8 @@ System.out.println( "START BOT = " + name );
 
 		this.udpEmittentIds = emittentIds;
 		this.sessionId = -1;
-		
+
+//System.out.println( "this.aktiveUDP.clear()");
 		this.aktiveUDP.clear();
 		
 		//init counters
@@ -952,8 +970,8 @@ System.out.println( "get feed = " + feedMsg.getCounter() + " " + feedMsg.getAnza
 			txtLastTransaction.setText(feedMsg.getAnzahl() + " items, price=" + feedMsg.getPrice() );
 
 		if (feedMsg.getCounter().equals(-1) && feedMsg.getAnzahl().equals(0)) {
-			if (this.sessionId < feedMsg.getId())
-				this.sessionId = feedMsg.getId();
+			if (this.sessionId < feedMsg.getId().intValue())
+				this.sessionId = feedMsg.getId().intValue();
 			return;
 		}
 
@@ -962,11 +980,11 @@ System.out.println( "get feed = " + feedMsg.getCounter() + " " + feedMsg.getAnza
 		if (!(this.udpCounters.get(feedMsg.getTickerId()).equals(-1))) {
 
 			//same packet
-			if ( this.udpCounters.get(feedMsg.getTickerId()) >= feedMsg.getCounter() )
+			if ( this.udpCounters.get(feedMsg.getTickerId()).intValue() >= feedMsg.getCounter().intValue() )
 				return;
 							
 			//Fehler - mach etwas, vielleicht kan man einfach boerse.getState aufrufen
-			if (feedMsg.getCounter() != this.udpCounters.get(feedMsg.getTickerId()) + 1) {
+			if (feedMsg.getCounter().intValue() != this.udpCounters.get(feedMsg.getTickerId()).intValue() + 1) {
 				System.out.println( "Fehlererkennung!!!" );
 				//updateStatus();
 			}
@@ -977,11 +995,11 @@ System.out.println( "get feed = " + feedMsg.getCounter() + " " + feedMsg.getAnza
 		if (feedMsg.getStatus().equals(AuftragStatus.Accepted)) {
 			if (this.feedMsgs.containsKey(feedMsg.getId())) {
 				this.feedMsgs.get(feedMsg.getId()).Amount = feedMsg.getAnzahl();
-				System.out.println( "this.feedMsgs.EDIT = " + feedMsg.getId() );
+System.out.println( "this.feedMsgs.EDIT = " + feedMsg.getId() );
 			}
 			else {
 				this.feedMsgs.put(feedMsg.getId(), new FeedMsgUDP(feedMsg.getId(), feedMsg.getKaufen(), feedMsg.getAnzahl(), feedMsg.getPrice()));
-				System.out.println( "this.feedMsgs.put = " + feedMsg.getId() );
+System.out.println( "this.feedMsgs.put = " + feedMsg.getId() );
 			}
 				
 			this.updateUDPGlass();
@@ -1005,33 +1023,35 @@ System.out.println( "get feed = " + feedMsg.getCounter() + " " + feedMsg.getAnza
 	private void updateUDPGlass() {
 		final int itemsCount = 5;
 		
-		aktiveUDP.removeAllElements();
+//System.out.println( "this.aktiveUDP.removeAllElements()");
+
+		this.aktiveUDP.removeAllElements();
 		
 		FeedMsgUDP[] sorted = this.feedMsgs.values().toArray(new FeedMsgUDP[this.feedMsgs.values().size()]); 
 		
 		java.util.Arrays.sort(sorted, new java.util.Comparator<FeedMsgUDP>() {
 		    public int compare(FeedMsgUDP o1, FeedMsgUDP o2) {
 		        if (o1.Buy && !o2.Buy) {
-		        	return 0;
+		        	return 1;
 		        }
 		        else if (o1.Buy && o2.Buy) {
 		        	if (o2.Price == o1.Price)
 		        		return 0;
 		        	else if (o2.Price < o1.Price)
-		        		return -1;
-		        	else
 		        		return 1;
+		        	else
+		        		return -1;
 		        }
 		        else if (!o1.Buy && !o2.Buy) {
-		        	return 1;
-		        }
-		        else if (!o1.Buy && o2.Buy) {
 		        	if (o2.Price == o1.Price)
 		        		return 0;
 		        	else if (o2.Price > o1.Price)
 		        		return 1;
 		        	else
 		        		return -1;
+		        }
+		        else if (!o1.Buy && o2.Buy) {
+		        	return -1;
 		        }
 		        
 		        return 0;
@@ -1045,16 +1065,26 @@ System.out.println( "get feed = " + feedMsg.getCounter() + " " + feedMsg.getAnza
 			}
 		}
 
+		if (sorted.length > 0 && !sorted[sorted.length - 1].Buy) {
+			pos = sorted.length - 1;
+		}
+		
+//		for (int i = 0; i < sorted.length; ++i) {
+//System.out.println( pos + " " + sorted[i].Buy +  " and " + sorted[i].Price );
+//		}
+
 		int start = 0;
 		int finish = sorted.length;
-		if (pos > itemsCount)
-			start = pos - itemsCount;
+		if (pos + 1 > itemsCount)
+			start = pos - itemsCount + 1;
 		if (pos + itemsCount < sorted.length)
 			finish = pos + itemsCount;
 
-		System.out.println( sorted.length +  " updateUDPGlass from " + start + " till " + finish );
+//System.out.println( pos +  " and " + itemsCount );
+//System.out.println( sorted.length +  " updateUDPGlass from " + start + " till " + finish );
 
 		for (int i = start; i < finish; ++i) {
+//System.out.println( " add to glass " +  sorted[i].toString() );
 			aktiveUDP.addElement(sorted[i].toString());
 		}
 
@@ -1084,8 +1114,8 @@ System.out.println( "this.auftraege.containsKey(id)=" + this.auftraege.containsK
 			this.UpdateClientInfo();
 		}
 		
-System.out.println( "this.feedMsgs.containsKey(id)=" + this.feedMsgs.containsKey(id) );
-		if (this.feedMsgs.containsKey(id) && (status.equals(AuftragStatus.TeilweiseBearbeitet)) || (status.equals(AuftragStatus.Bearbeitet))) {
+//System.out.println( "this.feedMsgs.containsKey(id)=" + this.feedMsgs.containsKey(id) );
+		if (this.feedMsgs.containsKey(id) && ( status.equals(AuftragStatus.TeilweiseBearbeitet) || status.equals(AuftragStatus.Bearbeitet) ) ) {
 			if (status.equals(AuftragStatus.TeilweiseBearbeitet))
 				this.feedMsgs.get(id).Amount -= feedMsg.getAnzahl();
 			else

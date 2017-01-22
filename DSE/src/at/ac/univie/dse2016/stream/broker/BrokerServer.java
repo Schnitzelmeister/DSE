@@ -369,7 +369,7 @@ System.out.println( "returnText = " + returnText );
 			}
 			
 			auftrag.setId(ret);
-			auftrag.setStatus(AuftragStatus.Accepted);
+			auftrag.setStatus(AuftragStatus.Bearbeitet);
 			auftraege.put(ret, auftrag);
 			
 			client.getAuftraegeList().put(ret, auftrag);
@@ -397,7 +397,7 @@ System.out.println( "returnText = " + returnText );
 			throw new IllegalArgumentException("Auftrag with id=" + auftragId + " is not aktive or does not exist");
 		
 		Auftrag auftrag = auftraege.get(auftragId);
-		if (auftrag.getStatus() != AuftragStatus.Accepted)
+		if (!auftrag.getStatus().equals(AuftragStatus.Accepted) && !auftrag.getStatus().equals(AuftragStatus.TeilweiseBearbeitet))
 			throw new IllegalArgumentException("Auftrag with id=" + auftragId + " can not be canceled");
 
 		int tickerId = this.emittents.get( auftrag.getTicker() ).getId();
@@ -643,25 +643,18 @@ System.out.println( "returnText = " + returnText );
 	}
 
 	private void listenUDPResponse() {
-//System.out.println( "listenUDPResponse START" );
-		try {
+	    try {
 	    	byte[] buf = new byte[64 * 1024];
+	    	
+//System.out.println( "listenUDPResponse START" );
+	    	
 	    	
 	    	do {
 				DatagramPacket requestPacket = new DatagramPacket(buf, buf.length);
 				socketUDP.receive(requestPacket);
 //System.out.println( "listenUDPResponse" );
 			    ByteArrayInputStream bis = new ByteArrayInputStream(requestPacket.getData());
-			    //int l = _bis.read(buf);
-//System.out.println( sessionId + " ars = " + l );
-			    
-				//ByteArrayInputStream bis = new ByteArrayInputStream(_bis);
-				
-			    ObjectInput in = new ObjectInputStream( bis );
-//System.out.println(java.util.Arrays.toString(buf));
-
-
-//System.out.println( sessionId + " get msgCount = " + len );
+			    ObjectInput in = new ObjectInputStream(bis);
 			    for (byte i = 0; i < 255; ++i) {
 			    	try {
 			    		FeedMsg feed = (FeedMsg) in.readObject();
@@ -675,23 +668,22 @@ System.out.println( "returnText = " + returnText );
 			    	
 			    }
 //System.out.println( "listenUDPResponse end" );
-
 			    in.close();
-			    //_bis.close();
 			    bis.close();
 			    
 	    	} while (true);
 	    }   
 	    catch (SocketException e){
 	        System.err.println("Socket: " + e.getMessage());
-	        e.printStackTrace();
+	        //e.printStackTrace();
+	        return;
 	    }
 	    catch (IOException e){
 	    	System.err.println("IO: " + e.getMessage());
 	    	e.printStackTrace();
 	    }
 	    catch (ClassNotFoundException e){
-	    	System.err.println("ClassNotFoundException: " + e.getMessage());
+	    	System.err.println("IO: " + e.getMessage());
 	    	e.printStackTrace();
 	    }
 	    catch (Exception e){
@@ -703,25 +695,25 @@ System.out.println( "returnText = " + returnText );
 	}
 	
 	private void processFeedMsg(FeedMsg feedMsg) {
-		System.out.println( "get feed = " + feedMsg.getCounter() + " " + feedMsg.getAnzahl() + " " + feedMsg.getId()  + " " + feedMsg.getId2() );
+//		System.out.println( "get feed = " + feedMsg.getCounter() + " " + feedMsg.getAnzahl() + " " + feedMsg.getId()  + " " + feedMsg.getId2() );
 
-		if (feedMsg.getCounter() == -1) {
-			if (this.sessionId < feedMsg.getId())
-				this.sessionId = feedMsg.getId();
+		if (feedMsg.getCounter().equals(-1)) {
+			if (this.sessionId < feedMsg.getId().intValue())
+				this.sessionId = feedMsg.getId().intValue();
 			
 			//start preise kommen
 			return;
 		}
 		
 		//Fehlererkennung
-		if (this.udpCounters.get(feedMsg.getTickerId()) != -1) {
+		if (!(this.udpCounters.get(feedMsg.getTickerId()).equals(-1))) {
 
 			//same packet
-			if ( this.udpCounters.get(feedMsg.getTickerId()) >= feedMsg.getCounter() )
+			if ( this.udpCounters.get(feedMsg.getTickerId()).intValue() >= feedMsg.getCounter().intValue() )
 				return;
 							
 			//Fehler - mach etwas, vielleicht kan man einfach boerse.getState aufrufen
-			if (feedMsg.getCounter() != this.udpCounters.get(feedMsg.getTickerId()) + 1) {
+			if (feedMsg.getCounter().intValue() != this.udpCounters.get(feedMsg.getTickerId()).intValue() + 1) {
 				System.out.println( "Fehlererkennung!!!" );
 				//updateStatus();
 			}
@@ -729,9 +721,9 @@ System.out.println( "returnText = " + returnText );
 		
 		this.udpCounters.put(feedMsg.getTickerId(), feedMsg.getCounter());
 		
-		if (feedMsg.getId() != -1)
+		if (!feedMsg.getId().equals(-1))
 			processFeedMsgAuftrag(feedMsg, false);
-		if (feedMsg.getId2() != -1)
+		if (!feedMsg.getId2().equals(-1))
 			processFeedMsgAuftrag(feedMsg, true);
 	}
 	
@@ -758,17 +750,17 @@ System.out.println( "returnText = " + returnText );
 			//System.out.println( "processFeedMsg Auftrag , clientAuftrag.getOwnerId() = " + clientAuftrag.getOwnerId() + ", client= " + client.getName() );
 
 			synchronized(client) {
-				if (status == AuftragStatus.Canceled) {
+				if (status.equals(AuftragStatus.Canceled)) {
 					if (clientAuftrag.getBedingung() > 0) {
 						if (clientAuftrag.getKaufen())
 							client.setDisponibelstand(clientAuftrag.getBedingung() * clientAuftrag.getAnzahl());
 						else
 							client.setDisponibelstand( feedMsg.getTickerId(), clientAuftrag.getAnzahl());
 					}
-					
+//System.out.println( "client.getAuftraegeList() is null = " + (boolean)(client.getAuftraegeList() == null) + ", id= " + id );
 					client.getAuftraegeList().remove(id);
 				}
-				else if (status == AuftragStatus.Bearbeitet || status == AuftragStatus.TeilweiseBearbeitet) {
+				else if (status.equals(AuftragStatus.Bearbeitet) || status.equals(AuftragStatus.TeilweiseBearbeitet)) {
 					if (clientAuftrag.getKaufen()) {
 						client.setKontostand(-feedMsg.getPrice() * feedMsg.getAnzahl());
 						client.setKontostand(feedMsg.getTickerId(), feedMsg.getAnzahl());
@@ -782,7 +774,7 @@ System.out.println( "returnText = " + returnText );
 						client.setKontostand(feedMsg.getPrice() * feedMsg.getAnzahl());
 						client.setKontostand(feedMsg.getTickerId(), -feedMsg.getAnzahl());
 						
-						System.out.println( "processFeedMsg Auftrag , clientAuftrag.getBedingung() = " + clientAuftrag.getBedingung() + ", id2= " + id2 );
+//System.out.println( "processFeedMsg Auftrag , clientAuftrag.getBedingung() = " + clientAuftrag.getBedingung() + ", id2= " + id2 );
 
 						client.setDisponibelstand(feedMsg.getPrice() * feedMsg.getAnzahl());
 						if (!id2 && clientAuftrag.getBedingung() <= 0) {
@@ -790,17 +782,18 @@ System.out.println( "returnText = " + returnText );
 						}
 					}
 
-					if (status == AuftragStatus.Bearbeitet)
+					if (status.equals(AuftragStatus.Bearbeitet))
 						client.getAuftraegeList().remove(id);
 
 				}
-				else if (status == AuftragStatus.Accepted) {
+				else if (status.equals(AuftragStatus.Accepted)) {
 					clientAuftrag.setAnzahl( feedMsg.getAnzahl() );
 				}
 				else
 					throw new IllegalArgumentException("BROKER ERROR - impossible!!!");
 				
 				clientAuftrag.setStatus(status);
+//System.out.println( "clientAuftrag.setStatus = " + clientAuftrag.getId() + " = " + clientAuftrag.getStatus()  + " = " + clientAuftrag.getBedingung() );
 				setToLog(clientAuftrag);
 			}
 		}
@@ -904,9 +897,9 @@ System.out.println( "returnText = " + returnText );
 					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 100000);
 					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 100000);
 					clId = brokerServer.clientAddNew( new Client(brokerId, "Daniil 2") );
-					brokerServer.tradingAccount(clId, 100000);
-					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 10000);
-					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 10000);
+					brokerServer.tradingAccount(clId, 1000000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 100000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 100000);
 				}
 				break;
 			case 2: 
@@ -916,9 +909,9 @@ System.out.println( "returnText = " + returnText );
 					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 100000);
 					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 100000);
 					clId = brokerServer.clientAddNew( new Client(brokerId, "Jakub 2") );
-					brokerServer.tradingAccount(clId, 100000);
-					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 10000);
-					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 10000);
+					brokerServer.tradingAccount(clId, 1000000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 100000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 100000);
 				}
 				break;
 			case 3: 
@@ -928,24 +921,27 @@ System.out.println( "returnText = " + returnText );
 					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 100000);
 					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 100000);
 					clId = brokerServer.clientAddNew( new Client(brokerId, "Ayrat 2") );
-					brokerServer.tradingAccount(clId, 100000);
-					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 10000);
-					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 10000);
+					brokerServer.tradingAccount(clId, 1000000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("AAPL").getId(), 100000);
+					brokerServer.tradingAccount(clId, brokerServer.emittents.get("RDSA").getId(), 100000);
 				}
 				break;
 			}
 			
 			brokerServer.getFeedUDP();
 
+			//we use RMI
 			brokerServer.tmpSentMode = 3;
+			
+			
 			/*
 			Thread.sleep(3000);
 			//RMI
 			brokerServer.tmpSentMode = 3;*/
-			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 1000, 50) );
+			//brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 1000, 50) );
 
-			Thread.sleep(10000);
-			brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100, 500) );
+			//Thread.sleep(10000);
+			//brokerServer.auftragAddNew(2, new Auftrag(2, false, "AAPL", 100, 500) );
 
 /*
 			Thread.sleep(3000);
