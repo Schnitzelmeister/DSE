@@ -156,7 +156,6 @@ public final class BoerseServer implements BoerseAdmin, BoerseClient, MessageLis
         stopMessaging();
 		stopFeedUDP();
 		
-		threadUDP.interrupt();
 	}
 
 	/**
@@ -1300,15 +1299,16 @@ System.out.println( sessionId + " bosReal.toByteArray() = " + bosReal.size() );
     private MessageProducer replyProducer;
     private MessageConsumer consumer;
     private Connection connection;
+    private BrokerService broker;
     
     private void startMessaging() {
         try {
-        	BrokerService broker = new BrokerService();
+        	broker = new BrokerService();
             broker.setPersistent(false);
             broker.setUseJmx(false);
             broker.addConnector(messageBrokerUrl);
             broker.start();
-
+            
             ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory(messageBrokerUrl);
             connectionFactory.setTrustAllPackages(true);
             
@@ -1344,6 +1344,7 @@ System.out.println( sessionId + " bosReal.toByteArray() = " + bosReal.size() );
     		this.replyProducer.close();
     		this.session.close();
     		this.connection.close();
+    		this.broker.stop();
     	}
     	catch (Exception e) {
             e.printStackTrace();

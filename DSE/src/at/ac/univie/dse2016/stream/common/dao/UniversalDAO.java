@@ -29,7 +29,7 @@ public class UniversalDAO <T extends PersistableObject> {
 		this.idGen.set(0);
 		
 		this.source = source;
-		container = new java.util.TreeMap<Integer, T>();
+		this.container = new java.util.TreeMap<Integer, T>();
 		
 		try {
 			ObjectInputStream ois = new ObjectInputStream(new FileInputStream(this.source));
@@ -51,7 +51,7 @@ public class UniversalDAO <T extends PersistableObject> {
 	}
 	
 	/**
-	 * Get Container
+	 * Get Copy of Container
 	 */
 	@SuppressWarnings("unchecked")
 	public java.util.TreeMap<Integer, T> getItems() {
